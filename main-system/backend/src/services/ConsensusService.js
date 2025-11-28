@@ -8,8 +8,6 @@ const checkConsensus = async (transactionId) => {
 
     const totalNodes = await Node.countDocuments({ isActive: true });
 
-    // If no nodes, we can't really have consensus unless we define a fallback.
-    // Assuming at least 1 node for now.
     if (totalNodes === 0) return 'PENDING';
 
     const yesVotes = transaction.votes.filter(v => v.decision).length;
@@ -25,12 +23,12 @@ const checkConsensus = async (transactionId) => {
     console.log(`Total Nodes: ${totalNodes}, Yes Votes: ${yesVotes}, Bank Approvals: ${bankApprovals}`);
     console.log(`Rule A Threshold: ${ruleAThreshold}, Rule B Node Threshold: ${ruleBNodeThreshold}`);
 
-    if (yesVotes >= ruleAThreshold) {
+    if (totalNodes > 0 && yesVotes >= ruleAThreshold) {
         console.log('Consensus Reached: Rule A');
         return 'APPROVED';
     }
 
-    if (bankApprovals >= 1 && yesVotes >= ruleBNodeThreshold) {
+    if (totalNodes > 0 && bankApprovals >= 1 && yesVotes >= ruleBNodeThreshold) {
         console.log('Consensus Reached: Rule B');
         return 'APPROVED';
     }

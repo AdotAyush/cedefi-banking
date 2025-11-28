@@ -12,10 +12,15 @@ const requestApproval = async (bankUrl, transaction) => {
             transactionId: transaction.transactionId,
             sender: transaction.sender,
             amount: transaction.amount
-        });
+        }, { timeout: 5000 }); // 5 second timeout
         return response.data;
     } catch (error) {
-        console.error(`Error requesting approval from ${bankUrl}:`, error.message);
+        // Log less verbose error if it's just a connection refused (bank offline)
+        if (error.code === 'ECONNREFUSED') {
+            console.warn(`Bank at ${bankUrl} is offline.`);
+        } else {
+            console.error(`Error requesting approval from ${bankUrl}:`, error.message);
+        }
         return null;
     }
 };
