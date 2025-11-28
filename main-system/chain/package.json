@@ -1,0 +1,14 @@
+{
+    "name": "chain",
+    "version": "1.0.0",
+    "description": "Blockchain Layer for CeDeFi Voting System",
+    "scripts": {
+        "test": "hardhat test",
+        "deploy": "hardhat run scripts/deploy.js --network localhost"
+    },
+    "devDependencies": {
+        "hardhat": "^2.19.0",
+        "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+        "ethers": "^6.8.1"
+    }
+}
