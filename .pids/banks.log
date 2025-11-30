@@ -1,0 +1,7 @@
+Starting Bank A on port 3001 (BANK_ID=BankA). Log: logs/BankA.log
+Started Bank A (PID: 59773)
+Starting Bank B on port 3002 (BANK_ID=BankB). Log: logs/BankB.log
+Started Bank B (PID: 59774)
+Starting Bank C on port 3003 (BANK_ID=BankC). Log: logs/BankC.log
+Started Bank C (PID: 59775)
+Started Bank A (3001), Bank B (3002), Bank C (3003)

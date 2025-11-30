@@ -1,0 +1,43 @@
+nohup: ignoring input
+WARNING: You are currently using Node.js v18.19.1, which is not supported by Hardhat. This can lead to unexpected behavior. See https://v2.hardhat.org/nodejs-versions
+
+
+Error: listen EADDRINUSE: address already in use 127.0.0.1:8545
+    at Server.setupListenHandle [as _listen2] (node:net:1811:16)
+    at listenInCluster (node:net:1859:12)
+    at doListen (node:net:2008:7)
+    at processTicksAndRejections (node:internal/process/task_queues:83:21)
+[0;32m[SUCCESS][0m Hardhat node started (PID: 240760)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 246509)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 276019)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 8999)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 13037)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 15558)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 18798)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 27135)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 28311)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 33996)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 34983)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 46332)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 49428)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 55080)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 55667)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 58765)
+[0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 59599)
+[0;32m[SUCCESS][0m Smart contracts deployed

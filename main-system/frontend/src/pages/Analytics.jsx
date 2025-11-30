@@ -1,13 +1,42 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 
 const Analytics = () => {
-    // Mock data
-    const data = Array.from({ length: 30 }, (_, i) => ({
-        name: `Day ${i + 1}`,
-        txs: Math.floor(Math.random() * 100) + 20,
-        volume: Math.floor(Math.random() * 5000) + 1000,
-    }));
+    const [data, setData] = useState([]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const res = await axios.get('http://localhost:5000/transactions');
+                const transactions = res.data;
+
+                // Process data: Group by date
+                const grouped = transactions.reduce((acc, tx) => {
+                    const date = new Date(tx.createdAt).toLocaleDateString();
+                    if (!acc[date]) {
+                        acc[date] = { name: date, txs: 0, volume: 0 };
+                    }
+                    acc[date].txs += 1;
+                    acc[date].volume += tx.amount;
+                    return acc;
+                }, {});
+
+                // Convert to array and sort by date
+                const chartData = Object.values(grouped).sort((a, b) => new Date(a.name) - new Date(b.name));
+
+                // Fill in missing days if needed (optional, skipping for now to keep it simple)
+                setData(chartData);
+            } catch (error) {
+                console.error("Error fetching analytics data", error);
+            }
+        };
+
+        fetchData();
+        const interval = setInterval(fetchData, 5000); // Live update
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -16,7 +45,7 @@ const Analytics = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Transaction Volume (30 Days)</CardTitle>
+                        <CardTitle>Transaction Volume</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[300px]">
@@ -29,7 +58,7 @@ const Analytics = () => {
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                                    <XAxis dataKey="name" hide />
+                                    <XAxis dataKey="name" />
                                     <YAxis />
                                     <Tooltip />
                                     <Area type="monotone" dataKey="volume" stroke="#8884d8" fillOpacity={1} fill="url(#colorVol)" />
@@ -48,7 +77,7 @@ const Analytics = () => {
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={data}>
                                     <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                                    <XAxis dataKey="name" hide />
+                                    <XAxis dataKey="name" />
                                     <YAxis />
                                     <Tooltip />
                                     <Bar dataKey="txs" fill="#82ca9d" radius={[4, 4, 0, 0]} />

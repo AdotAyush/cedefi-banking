@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaSearch, FaPaperPlane, FaMoneyBillWave, FaHashtag } from 'react-icons/fa';
@@ -7,12 +7,20 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import AuthContext from '../context/AuthContext';
 
 const Transactions = () => {
+    const { user } = useContext(AuthContext);
     const [transactions, setTransactions] = useState([]);
-    const [formData, setFormData] = useState({ transactionId: '', sender: '', amount: '' });
+    const [formData, setFormData] = useState({ transactionId: '', sender: user?.did || '', recipient: '', amount: '' });
     const [filter, setFilter] = useState('ALL');
     const [searchTerm, setSearchTerm] = useState('');
+
+    useEffect(() => {
+        if (user?.did) {
+            setFormData(prev => ({ ...prev, sender: user.did }));
+        }
+    }, [user]);
 
     const fetchTransactions = async () => {
         try {
@@ -33,7 +41,7 @@ const Transactions = () => {
         e.preventDefault();
         try {
             await axios.post('http://localhost:5000/transactions', formData);
-            setFormData({ transactionId: '', sender: '', amount: '' });
+            setFormData({ transactionId: '', sender: '', recipient: '', amount: '' });
             fetchTransactions();
         } catch (error) {
             alert('Error creating transaction');
@@ -76,9 +84,14 @@ const Transactions = () => {
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Sender</label>
-                                <Input placeholder="Alice"
-                                    value={formData.sender} onChange={e => setFormData({ ...formData, sender: e.target.value })} required />
+                                <label className="text-sm font-medium">Sender (DID)</label>
+                                <Input placeholder="did:cedefi:0x..."
+                                    value={formData.sender} readOnly className="bg-muted" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Recipient (DID)</label>
+                                <Input placeholder="did:cedefi:0x..."
+                                    value={formData.recipient} onChange={e => setFormData({ ...formData, recipient: e.target.value })} required />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Amount</label>
@@ -129,6 +142,7 @@ const Transactions = () => {
                             <TableRow>
                                 <TableHead>ID</TableHead>
                                 <TableHead>Sender</TableHead>
+                                <TableHead>Recipient</TableHead>
                                 <TableHead>Amount</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Bank Approvals</TableHead>
@@ -141,6 +155,7 @@ const Transactions = () => {
                                     <TableRow key={tx._id}>
                                         <TableCell className="font-mono font-medium">{tx.transactionId}</TableCell>
                                         <TableCell>{tx.sender}</TableCell>
+                                        <TableCell>{tx.recipient}</TableCell>
                                         <TableCell className="font-bold text-green-600">${tx.amount}</TableCell>
                                         <TableCell>
                                             <Badge variant={tx.status === 'APPROVED' ? 'success' : tx.status === 'REJECTED' ? 'destructive' : 'warning'}>

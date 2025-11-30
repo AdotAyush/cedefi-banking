@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { FaServer, FaVoteYea, FaVoteNay, FaPlus } from 'react-icons/fa';
+import { FaServer, FaThumbsUp, FaThumbsDown, FaPlus, FaCheck, FaTimes, FaMoneyBillWave } from 'react-icons/fa';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +10,9 @@ const Simulator = () => {
     const [nodes, setNodes] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [selectedTx, setSelectedTx] = useState('');
-    const [selectedNode, setSelectedNode] = useState('');
+
+    // New Transaction State
+    const [newTx, setNewTx] = useState({ sender: 'User1', recipient: 'User2', amount: 100 });
 
     const fetchData = async () => {
         try {
@@ -43,11 +45,35 @@ const Simulator = () => {
         }
     };
 
-    const handleVote = async (decision) => {
-        if (!selectedTx || !selectedNode) return alert('Select transaction and node');
+    const handleVerifyNode = async (publicKey, action) => {
+        try {
+            await axios.post(`http://localhost:5000/nodes/${publicKey}/verify`, { action });
+            fetchData();
+        } catch (error) {
+            alert('Error verifying node');
+        }
+    };
+
+    const handleCreateTx = async () => {
+        const id = 'TX-' + Math.floor(Math.random() * 10000);
+        try {
+            await axios.post('http://localhost:5000/transactions', {
+                transactionId: id,
+                sender: newTx.sender,
+                recipient: newTx.recipient,
+                amount: Number(newTx.amount)
+            });
+            fetchData();
+        } catch (error) {
+            alert('Error creating transaction');
+        }
+    };
+
+    const handleVote = async (nodePublicKey, decision) => {
+        if (!selectedTx) return alert('Select a transaction first');
         try {
             await axios.post(`http://localhost:5000/transactions/${selectedTx}/vote`, {
-                voter: selectedNode,
+                voter: nodePublicKey,
                 decision
             });
             fetchData();
@@ -56,118 +82,187 @@ const Simulator = () => {
         }
     };
 
+    const handleClaim = async () => {
+        if (!selectedTx) return alert('Select a transaction first');
+        try {
+            await axios.post(`http://localhost:5000/transactions/${selectedTx}/claim`);
+            fetchData();
+        } catch (error) {
+            alert('Error claiming: ' + (error.response?.data?.error || error.message));
+        }
+    };
+
+    const getTxStatusColor = (status) => {
+        switch (status) {
+            case 'APPROVED': return 'bg-green-500';
+            case 'REJECTED': return 'bg-red-500';
+            default: return 'bg-yellow-500';
+        }
+    };
+
     return (
         <div className="space-y-8">
             <h1 className="text-3xl font-bold tracking-tight">Network Simulator</h1>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Node Management */}
-                <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                >
-                    <Card className="h-full border-t-4 border-t-blue-500">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FaServer className="text-blue-500" />
-                                Node Management
-                            </CardTitle>
-                            <CardDescription>Simulate adding new validator nodes to the network.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="p-4 bg-muted/50 rounded-lg border border-dashed text-center">
-                                <p className="text-sm text-muted-foreground mb-4">Click below to spawn a new validator node instance.</p>
-                                <Button onClick={handleRegisterNode} className="w-full gap-2">
-                                    <FaPlus />
-                                    Register Random Node
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                <Card className="border-t-4 border-t-blue-500">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <FaServer className="text-blue-500" />
+                            Node Management
+                        </CardTitle>
+                        <CardDescription>Spawn new validator nodes.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={handleRegisterNode} className="w-full gap-2">
+                            <FaPlus /> Register Node
+                        </Button>
+                    </CardContent>
+                </Card>
 
-                {/* Voting Simulator */}
-                <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                >
-                    <Card className="h-full border-t-4 border-t-purple-500">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FaVoteYea className="text-purple-500" />
-                                Voting Simulator
-                            </CardTitle>
-                            <CardDescription>Cast votes from registered nodes on pending transactions.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Select Transaction</label>
-                                <select
-                                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    onChange={e => setSelectedTx(e.target.value)}
-                                    value={selectedTx}
-                                >
-                                    <option value="">-- Choose Transaction --</option>
-                                    {transactions.map(t => (
-                                        <option key={t._id} value={t.transactionId}>
-                                            {t.transactionId} [{t.status}]
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                {/* Transaction Creation */}
+                <Card className="border-t-4 border-t-green-500">
+                    <CardHeader>
+                        <CardTitle>Create Transaction</CardTitle>
+                        <CardDescription>Simulate a new transfer.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        <input
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="Sender DID (did:cedefi:...)"
+                            value={newTx.sender}
+                            onChange={e => setNewTx({ ...newTx, sender: e.target.value })}
+                        />
+                        <input
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="Recipient DID (did:cedefi:...)"
+                            value={newTx.recipient}
+                            onChange={e => setNewTx({ ...newTx, recipient: e.target.value })}
+                        />
+                        <input
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            type="number"
+                            placeholder="Amount"
+                            value={newTx.amount}
+                            onChange={e => setNewTx({ ...newTx, amount: e.target.value })}
+                        />
+                        <Button onClick={handleCreateTx} className="w-full">Create Transaction</Button>
+                    </CardContent>
+                </Card>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Select Node</label>
-                                <select
-                                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                    onChange={e => setSelectedNode(e.target.value)}
-                                    value={selectedNode}
-                                >
-                                    <option value="">-- Choose Node --</option>
-                                    {nodes.map(n => (
-                                        <option key={n._id} value={n.publicKey}>{n.name}</option>
-                                    ))}
-                                </select>
+                {/* Transaction Selection */}
+                <Card className="border-t-4 border-t-purple-500">
+                    <CardHeader>
+                        <CardTitle>Voting & Claims</CardTitle>
+                        <CardDescription>Select transaction to vote or claim.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <select
+                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            onChange={e => setSelectedTx(e.target.value)}
+                            value={selectedTx}
+                        >
+                            <option value="">-- Choose Transaction --</option>
+                            {transactions.map(t => (
+                                <option key={t._id} value={t.transactionId}>
+                                    {t.transactionId} [{t.status}]
+                                </option>
+                            ))}
+                        </select>
+                        {selectedTx && (
+                            <div className="mt-4 space-y-2">
+                                <div className="p-2 bg-muted rounded text-sm">
+                                    <p><strong>Status:</strong> {transactions.find(t => t.transactionId === selectedTx)?.status}</p>
+                                    <p><strong>Recipient Status:</strong> {transactions.find(t => t.transactionId === selectedTx)?.recipientStatus}</p>
+                                </div>
+                                {transactions.find(t => t.transactionId === selectedTx)?.status === 'APPROVED' &&
+                                    transactions.find(t => t.transactionId === selectedTx)?.recipientStatus === 'PENDING' && (
+                                        <Button onClick={handleClaim} className="w-full bg-yellow-500 hover:bg-yellow-600">
+                                            <FaMoneyBillWave className="mr-2" /> Claim Funds
+                                        </Button>
+                                    )}
                             </div>
-
-                            <div className="grid grid-cols-2 gap-4 pt-2">
-                                <Button variant="destructive" onClick={() => handleVote(false)} disabled={!selectedTx || !selectedNode} className="gap-2">
-                                    <FaVoteNay /> Vote NO
-                                </Button>
-                                <Button variant="default" onClick={() => handleVote(true)} disabled={!selectedTx || !selectedNode} className="bg-green-600 hover:bg-green-700 gap-2">
-                                    <FaVoteYea /> Vote YES
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Visual Node Grid */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Active Nodes Visualization</CardTitle>
+                    <CardTitle>Active Nodes & Voting</CardTitle>
+                    <CardDescription>Verify pending nodes and cast votes.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {nodes.map((node, i) => (
-                            <motion.div
-                                key={node._id}
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ delay: i * 0.05 }}
-                                className="flex flex-col items-center p-4 border rounded-xl hover:bg-muted/50 transition-colors cursor-pointer group"
-                            >
-                                <div className="relative mb-3">
-                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl group-hover:scale-110 transition-transform">
-                                        {node.name.charAt(0)}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {nodes.map((node, i) => {
+                            const currentTx = transactions.find(t => t.transactionId === selectedTx);
+                            const hasVoted = currentTx?.votes?.some(v => v.voter === node.publicKey);
+                            const voteDecision = currentTx?.votes?.find(v => v.voter === node.publicKey)?.decision;
+
+                            return (
+                                <motion.div
+                                    key={node._id}
+                                    initial={{ scale: 0.9, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ delay: i * 0.05 }}
+                                    className={`flex flex-col p-4 border rounded-xl bg-card hover:shadow-md transition-all ${node.status === 'PENDING' ? 'border-yellow-400 bg-yellow-50' : ''} ${node.status === 'FRAUDULENT' ? 'border-red-400 bg-red-50 opacity-50' : ''}`}
+                                >
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                                            {node.name.charAt(0)}
+                                        </div>
+                                        <div className="overflow-hidden">
+                                            <div className="font-bold text-sm truncate">{node.name}</div>
+                                            <div className="text-xs text-muted-foreground truncate w-24">{node.publicKey}</div>
+                                            <Badge variant="outline" className="mt-1 text-[10px]">{node.status}</Badge>
+                                        </div>
+                                        <div className={`ml-auto w-2 h-2 rounded-full ${node.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                                     </div>
-                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
-                                </div>
-                                <span className="font-bold text-sm">{node.name}</span>
-                                <span className="text-xs text-muted-foreground truncate w-full text-center">{node.publicKey.substring(0, 8)}...</span>
-                            </motion.div>
-                        ))}
+
+                                    {/* Node Verification UI */}
+                                    {node.status === 'PENDING' && (
+                                        <div className="flex gap-2 mt-2">
+                                            <Button size="sm" variant="outline" className="flex-1 border-green-200 hover:bg-green-100" onClick={() => handleVerifyNode(node.publicKey, 'APPROVE')}>
+                                                <FaCheck className="text-green-600" />
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="flex-1 border-red-200 hover:bg-red-100" onClick={() => handleVerifyNode(node.publicKey, 'REJECT')}>
+                                                <FaTimes className="text-red-600" />
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Voting UI */}
+                                    {node.status === 'ACTIVE' && selectedTx && currentTx?.status === 'PENDING' && !hasVoted && (
+                                        <div className="flex gap-2 mt-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="flex-1 hover:bg-green-100 hover:text-green-700 border-green-200"
+                                                onClick={() => handleVote(node.publicKey, true)}
+                                            >
+                                                <FaThumbsUp className="mr-1" /> YES
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="flex-1 hover:bg-red-100 hover:text-red-700 border-red-200"
+                                                onClick={() => handleVote(node.publicKey, false)}
+                                            >
+                                                <FaThumbsDown className="mr-1" /> NO
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {selectedTx && hasVoted && (
+                                        <div className={`mt-2 text-center text-sm font-bold py-1 rounded ${voteDecision ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                            Voted {voteDecision ? 'YES' : 'NO'}
+                                        </div>
+                                    )}
+                                </motion.div>
+                            );
+                        })}
                         {nodes.length === 0 && <div className="col-span-full text-center text-muted-foreground py-10">No nodes active</div>}
                     </div>
                 </CardContent>

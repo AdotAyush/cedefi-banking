@@ -1,9 +1,11 @@
-import { Link, useLocation } from 'react-router-dom';
-import { FaChartLine, FaExchangeAlt, FaNetworkWired, FaHistory, FaCog, FaChartPie } from 'react-icons/fa';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { FaChartLine, FaExchangeAlt, FaNetworkWired, FaHistory, FaCog, FaChartPie, FaSignOutAlt } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import { useContext } from 'react';
+import AuthContext from '../context/AuthContext';
 
-const SidebarItem = ({ to, icon: Icon, label, active }) => (
-    <Link to={to}>
+const SidebarItem = ({ to, icon: Icon, label, active, onClick }) => (
+    <Link to={to} onClick={onClick}>
         <motion.div
             whileHover={{ scale: 1.02, x: 5 }}
             whileTap={{ scale: 0.98 }}
@@ -17,6 +19,13 @@ const SidebarItem = ({ to, icon: Icon, label, active }) => (
 
 const Layout = ({ children }) => {
     const location = useLocation();
+    const { user, logout } = useContext(AuthContext);
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
 
     return (
         <div className="flex h-screen bg-background font-sans text-foreground">
@@ -43,15 +52,22 @@ const Layout = ({ children }) => {
                 </nav>
 
                 <div className="p-4 bg-muted/50 rounded-xl mt-auto border">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-                            AD
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs uppercase">
+                            {user?.username?.substring(0, 2) || 'US'}
                         </div>
-                        <div>
-                            <div className="font-semibold text-sm">Admin User</div>
-                            <div className="text-xs text-muted-foreground">Online</div>
+                        <div className="overflow-hidden">
+                            <div className="font-semibold text-sm truncate">{user?.username || 'User'}</div>
+                            <div className="text-xs text-muted-foreground truncate">{user?.email || 'user@example.com'}</div>
                         </div>
                     </div>
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center justify-center gap-2 p-2 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                        <FaSignOutAlt />
+                        Sign Out
+                    </button>
                 </div>
             </div>
 
