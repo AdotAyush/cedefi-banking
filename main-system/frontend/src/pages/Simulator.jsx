@@ -104,7 +104,7 @@ const Simulator = () => {
         <div className="space-y-8">
             <h1 className="text-3xl font-bold tracking-tight">Network Simulator</h1>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Node Management */}
                 <Card className="border-t-4 border-t-blue-500">
                     <CardHeader>
@@ -122,7 +122,7 @@ const Simulator = () => {
                 </Card>
 
                 {/* Transaction Creation */}
-                <Card className="border-t-4 border-t-green-500">
+                {/* <Card className="border-t-4 border-t-green-500">
                     <CardHeader>
                         <CardTitle>Create Transaction</CardTitle>
                         <CardDescription>Simulate a new transfer.</CardDescription>
@@ -149,9 +149,9 @@ const Simulator = () => {
                         />
                         <Button onClick={handleCreateTx} className="w-full">Create Transaction</Button>
                     </CardContent>
-                </Card>
+                </Card> */}
 
-                {/* Transaction Selection */}
+                {/*Transaction Selection*/}
                 <Card className="border-t-4 border-t-purple-500">
                     <CardHeader>
                         <CardTitle>Voting & Claims</CardTitle>

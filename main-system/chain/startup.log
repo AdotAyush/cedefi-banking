@@ -41,3 +41,5 @@ Error: listen EADDRINUSE: address already in use 127.0.0.1:8545
 [0;32m[SUCCESS][0m Smart contracts deployed
 [0;32m[SUCCESS][0m Hardhat node started (PID: 59599)
 [0;32m[SUCCESS][0m Smart contracts deployed
+[0;32m[SUCCESS][0m Hardhat node started (PID: 183241)
+[0;32m[SUCCESS][0m Smart contracts deployed

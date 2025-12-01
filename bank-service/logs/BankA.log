@@ -4,19 +4,15 @@
 
 [BankA] Initialized. DID: did:cedefi:bank:0xfcad0b19bb29d4674531d6f115237e16afce377c
 Bank Service [BankA] running on port 3001
-[BankA] Initiating transfer of 100 to did:cedefi:bank:0x98ef735bddf88113f69538f372414146b6c317fb
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Manual Force Approval for tx-1764514602616-sb0uer5jb
-[BankA] Approved transaction tx-1764514602616-sb0uer5jb
+[BankA] Rejected transaction TX-213
+[BankA] Rejected transaction TX-213
+[BankA] Manual Force Approval for TX-213
+[BankA] Approved transaction TX-213
 [BankA] Notified Main System of approval
-[BankA] Requesting 100 from Blockchain Faucet
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
-[BankA] Validating tx-1764514602616-sb0uer5jb. Trusted Votes: 0/1
+[BankA] Validating TX-213. Trusted Votes: 0/1
+[BankA] Validating TX-213. Trusted Votes: 0/1
+[BankA] Validating TX-213. Trusted Votes: 0/1
+[BankA] Validating TX-213. Trusted Votes: 0/1
+[BankA] Validating TX-213. Trusted Votes: 0/1
+[BankA] Validating TX-213. Trusted Votes: 0/1
+[BankA] Validating TX-213. Trusted Votes: 0/1
