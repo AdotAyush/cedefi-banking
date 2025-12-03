@@ -1,8 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const History = () => {
     const [history, setHistory] = useState([]);
@@ -33,53 +31,67 @@ const History = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const getBadgeVariant = (status) => {
-        switch (status) {
-            case 'APPROVED': return 'success'; // You might need to define this variant or use default/secondary
-            case 'REJECTED': return 'destructive';
-            default: return 'outline';
-        }
-    };
-
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold">System History</h1>
+            <div className="text-2xl font-bold">System History</div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Audit Log</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Transaction ID</TableHead>
-                                <TableHead>Action</TableHead>
-                                <TableHead>User</TableHead>
-                                <TableHead>Recipient Status</TableHead>
-                                <TableHead>Timestamp</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {history.map((item) => (
-                                <TableRow key={item.id}>
-                                    <TableCell className="font-mono">{item.id}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={getBadgeVariant(item.status)}>{item.action}</Badge>
-                                    </TableCell>
-                                    <TableCell>{item.user}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">{item.recipientStatus}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground">{item.timestamp}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            <div className="rounded-2xl bg-theme-subtle ring-1 ring-theme p-4">
+                <div className="text-lg font-semibold mb-4">Audit Log</div>
+                <div className="overflow-x-auto">
+                    <div className="min-w-full inline-block align-middle">
+                        <table className="table w-full">
+                            <thead>
+                                <tr className="border-b data-[theme=corporate]:text-gray-700 data-[theme=corporate]:border-gray-200 data-[theme=business]:text-slate-300 data-[theme=business]:border-theme" data-theme={typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : 'business'}>
+                                    <th className="min-w-[120px]">Transaction ID</th>
+                                    <th className="min-w-[100px]">Action</th>
+                                    <th className="min-w-[150px]">User</th>
+                                    <th className="min-w-[120px]">Recipient Status</th>
+                                    <th className="min-w-[150px]">Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <AnimatePresence>
+                                    {history.map((item, i) => (
+                                        <motion.tr
+                                            key={item.id}
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ delay: i * 0.02 }}
+                                            className="hover:bg-theme-subtle border-b border-white/5 last:border-0"
+                                        >
+                                            <td className="font-mono text-sm">{item.id}</td>
+                                            <td>
+                                                <span className={`badge ${item.status === 'APPROVED' ? 'badge-success' : item.status === 'REJECTED' ? 'badge-error' : 'badge-warning'} badge-outline`}>
+                                                    {item.action}
+                                                </span>
+                                            </td>
+                                            <td className="font-mono text-xs text-slate-300">
+                                                <div className="max-w-[150px] truncate" title={item.user}>{item.user}</div>
+                                            </td>
+                                            <td>
+                                                <span className="badge badge-ghost badge-outline">
+                                                    {item.recipientStatus}
+                                                </span>
+                                            </td>
+                                            <td className="text-slate-400 text-sm">{item.timestamp}</td>
+                                        </motion.tr>
+                                    ))}
+                                </AnimatePresence>
+                                {history.length === 0 && (
+                                    <tr>
+                                        <td colSpan="5" className="text-center py-8 text-slate-400">
+                                            No history records found.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-    )
+    );
 }
 
-export default History
+export default History;

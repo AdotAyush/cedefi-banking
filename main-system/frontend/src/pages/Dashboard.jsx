@@ -1,9 +1,7 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import AuthContext from '../context/AuthContext';
 
 const Dashboard = () => {
@@ -32,151 +30,141 @@ const Dashboard = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // Filter transactions for User View
-    const userTransactions = transactions.filter(t => t.sender === user?.did || t.recipient === user?.did);
-    const userBalance = userTransactions.reduce((acc, t) => {
-        if (t.status !== 'APPROVED') return acc;
-        if (t.recipient === user?.did) return acc + t.amount;
-        if (t.sender === user?.did) return acc - t.amount;
-        return acc;
-    }, 0); // Assuming 0 start for demo, or fetch real balance
-
     // Stats Logic
-    const displayTxs = user?.role === 'admin' ? transactions : userTransactions;
-    const approvedTxs = displayTxs.filter(t => t.status === 'APPROVED').length;
-    const rejectedTxs = displayTxs.filter(t => t.status === 'REJECTED').length;
-    const pendingTxs = displayTxs.filter(t => t.status === 'PENDING').length;
+    const totalVolume = transactions.reduce((acc, t) => acc + t.amount, 0);
+    const successRate = transactions.length > 0
+        ? ((transactions.filter(t => t.status === 'APPROVED').length / transactions.length) * 100).toFixed(1)
+        : 0;
 
-    const pieData = [
-        { name: 'Approved', value: approvedTxs, color: '#22c55e' },
-        { name: 'Rejected', value: rejectedTxs, color: '#ef4444' },
-        { name: 'Pending', value: pendingTxs, color: '#eab308' },
+    const kpis = [
+        { label: 'Total Volume', value: `$${totalVolume.toLocaleString()}`, delta: '+12.4%', color: 'from-emerald-500 to-teal-500' },
+        { label: 'Active Nodes', value: activeNodes.toString(), delta: '+3', color: 'from-indigo-500 to-violet-500' },
+        { label: 'Success Rate', value: `${successRate}%`, delta: '+1.2%', color: 'from-sky-500 to-cyan-500' },
     ];
 
-    const chartData = displayTxs.map((t, i) => ({
-        name: `Tx ${i + 1}`,
-        amount: t.amount
-    })).slice(-10);
+    // Chart Data Preparation
+    const areaData = useMemo(() => {
+        const grouped = transactions.reduce((acc, tx) => {
+            const date = new Date(tx.createdAt).toLocaleDateString(); // Assuming createdAt exists
+            if (!acc[date]) acc[date] = 0;
+            acc[date] += tx.amount;
+            return acc;
+        }, {});
+        // Fallback mock data if no transactions
+        if (Object.keys(grouped).length === 0) {
+            return Array.from({ length: 12 }).map((_, i) => ({ name: `M${i + 1}`, volume: 400 + Math.round(Math.random() * 600) }));
+        }
+        return Object.entries(grouped).map(([name, volume]) => ({ name, volume }));
+    }, [transactions]);
+
+    const barData = useMemo(() => {
+        // Group transactions by day of week
+        const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const grouped = transactions.reduce((acc, tx) => {
+            const date = new Date(tx.createdAt);
+            const dayIndex = date.getDay();
+            const dayName = daysOfWeek[dayIndex];
+            if (!acc[dayName]) acc[dayName] = 0;
+            acc[dayName] += 1;
+            return acc;
+        }, {});
+
+        // Create array with all days, using 0 for days with no transactions
+        const result = daysOfWeek.map(day => ({
+            name: day,
+            txs: grouped[day] || 0
+        }));
+
+        return result;
+    }, [transactions]);
+
 
     return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">
-                    {user?.role === 'admin' ? 'Global Dashboard' : `Welcome, ${user?.username}`}
-                </h1>
-                <div className="flex gap-2">
-                    <Badge variant="outline">{user?.role === 'admin' ? 'Admin Access' : 'User Access'}</Badge>
-                    <Badge variant="outline" className="px-4 py-2 text-sm gap-2">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                        </span>
-                        Live Network
-                    </Badge>
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {kpis.map((k, i) => (
+                    <motion.div
+                        key={k.label}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className={`rounded-2xl p-5 bg-gradient-to-tr ${k.color} text-white shadow-lg shadow-black/20`}
+                    >
+                        <div className="text-sm/5 opacity-90">{k.label}</div>
+                        <div className="mt-2 text-3xl font-extrabold">{k.value}</div>
+                        <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs">
+                            <span className="h-2 w-2 rounded-full bg-white"></span>
+                            {k.delta} vs last period
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="col-span-2 rounded-2xl bg-theme-subtle ring-1 ring-theme p-4">
+                    <div className="flex items-center justify-between p-2">
+                        <div>
+                            <div className="text-sm text-theme-secondary">Monthly Volume</div>
+                            <div className="text-xl font-bold">$84,120</div>
+                        </div>
+                        <div className="join">
+                            <button className="btn btn-xs join-item btn-ghost">1M</button>
+                            <button className="btn btn-xs join-item btn-ghost">3M</button>
+                            <button className="btn btn-xs join-item btn-primary">1Y</button>
+                        </div>
+                    </div>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={areaData}>
+                                <defs>
+                                    <linearGradient id="grad1" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#818cf8" stopOpacity={0.6} />
+                                        <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} />
+                                <XAxis dataKey="name" stroke="#94a3b8" />
+                                <YAxis stroke="#94a3b8" />
+                                <Tooltip contentStyle={{ background: 'rgba(2,6,23,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} />
+                                <Area type="monotone" dataKey="volume" stroke="#818cf8" strokeWidth={2} fillOpacity={1} fill="url(#grad1)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+                <div className="rounded-2xl bg-theme-subtle ring-1 ring-theme p-4">
+                    <div className="text-sm text-theme-secondary">Weekly Transactions</div>
+                    <div className="h-64 mt-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={barData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} />
+                                <XAxis dataKey="name" stroke="#94a3b8" />
+                                <YAxis stroke="#94a3b8" />
+                                <Tooltip contentStyle={{ background: 'rgba(2,6,23,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} />
+                                <Bar dataKey="txs" radius={[6, 6, 0, 0]} fill="#22d3ee" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {user?.role === 'admin' ? (
-                    <>
-                        <StatsCard title="Active Nodes" value={activeNodes} desc={`Total Registered: ${nodes.length}`} icon="Server" />
-                        <StatsCard title="Total Volume" value={`$${transactions.reduce((acc, t) => acc + t.amount, 0)}`} desc="All time volume" icon="DollarSign" />
-                        <StatsCard title="Total Transactions" value={transactions.length} desc={`${approvedTxs} Approved`} icon="Activity" />
-                    </>
-                ) : (
-                    <>
-                        <StatsCard title="My Balance" value={`$${userBalance}`} desc="Net Balance" icon="Wallet" />
-                        <StatsCard title="My Volume" value={`$${userTransactions.reduce((acc, t) => acc + t.amount, 0)}`} desc="Total Sent/Received" icon="DollarSign" />
-                        <StatsCard title="My Transactions" value={userTransactions.length} desc={`${approvedTxs} Approved`} icon="Activity" />
-                    </>
-                )}
-            </div>
-
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="col-span-1">
-                    <CardHeader>
-                        <CardTitle>{user?.role === 'admin' ? 'Global Volume' : 'My Transaction History'}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pl-2">
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData}>
-                                    <defs>
-                                        <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                                    <XAxis dataKey="name" hide />
-                                    <YAxis />
-                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                                    <Area type="monotone" dataKey="amount" stroke="#8884d8" fillOpacity={1} fill="url(#colorAmt)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="col-span-1">
-                    <CardHeader>
-                        <CardTitle>Status Distribution</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-[300px] flex justify-center items-center">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={pieData}
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="flex flex-col gap-2 ml-4">
-                                {pieData.map((entry, index) => (
-                                    <div key={index} className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                                        <span className="text-sm font-medium">{entry.name}: {entry.value}</span>
-                                    </div>
-                                ))}
+            <div className="rounded-2xl bg-theme-subtle ring-1 ring-theme p-4">
+                <div className="text-lg font-semibold mb-4">Recent Activity</div>
+                <div className="divide-y divide-white/5">
+                    {transactions.slice(0, 6).map((tx, i) => (
+                        <motion.div key={tx._id || i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-3 py-3">
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-500 grid place-items-center">💸</div>
+                            <div className="flex-1">
+                                <div className="font-medium">{tx.transactionId} sent</div>
+                                <div className="text-xs text-theme-muted">to {tx.recipient?.substring(0, 16)}...</div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                            <div className="text-emerald-400 font-semibold">+$ {tx.amount}</div>
+                        </motion.div>
+                    ))}
+                    {transactions.length === 0 && <div className="p-4 text-center text-theme-muted">No recent activity</div>}
+                </div>
             </div>
         </div>
     );
 };
-
-const StatsCard = ({ title, value, desc, icon }) => (
-    <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-    >
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                    {title}
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{value}</div>
-                <p className="text-xs text-muted-foreground">
-                    {desc}
-                </p>
-            </CardContent>
-        </Card>
-    </motion.div>
-);
 
 export default Dashboard;

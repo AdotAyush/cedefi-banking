@@ -1,3 +1,125 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    body {
+        @apply transition-colors duration-300;
+    }
+}
+
+@layer components {
+
+    /* Glass effects */
+    .glass {
+        @apply bg-white/10 backdrop-blur-lg border border-white/20;
+    }
+
+    /* Theme-aware text colors */
+    [data-theme="corporate"] .text-theme-primary {
+        @apply text-gray-900;
+    }
+
+    [data-theme="business"] .text-theme-primary,
+    [data-theme="dark"] .text-theme-primary {
+        @apply text-slate-100;
+    }
+
+    [data-theme="corporate"] .text-theme-secondary {
+        @apply text-gray-700;
+    }
+
+    [data-theme="business"] .text-theme-secondary,
+    [data-theme="dark"] .text-theme-secondary {
+        @apply text-slate-300;
+    }
+
+    [data-theme="corporate"] .text-theme-muted {
+        @apply text-gray-600;
+    }
+
+    [data-theme="business"] .text-theme-muted,
+    [data-theme="dark"] .text-theme-muted {
+        @apply text-slate-400;
+    }
+
+    [data-theme="corporate"] .text-theme-subtle {
+        @apply text-gray-500;
+    }
+
+    [data-theme="business"] .text-theme-subtle,
+    [data-theme="dark"] .text-theme-subtle {
+        @apply text-slate-500;
+    }
+
+    /* Theme-aware border colors */
+    [data-theme="corporate"] .border-theme {
+        @apply border-gray-300;
+    }
+
+    [data-theme="business"] .border-theme,
+    [data-theme="dark"] .border-theme {
+        @apply border-white/10;
+    }
+
+    [data-theme="corporate"] .border-theme-light {
+        @apply border-gray-200;
+    }
+
+    [data-theme="business"] .border-theme-light,
+    [data-theme="dark"] .border-theme-light {
+        @apply border-white/5;
+    }
+
+    [data-theme="corporate"] .ring-theme {
+        @apply ring-gray-300;
+    }
+
+    [data-theme="business"] .ring-theme,
+    [data-theme="dark"] .ring-theme {
+        @apply ring-white/10;
+    }
+
+    /* Theme-aware background colors */
+    [data-theme="corporate"] .bg-theme-card {
+        @apply bg-white border-gray-200;
+    }
+
+    [data-theme="business"] .bg-theme-card,
+    [data-theme="dark"] .bg-theme-card {
+        @apply bg-white/5 border-white/10;
+    }
+
+    [data-theme="corporate"] .bg-theme-subtle {
+        @apply bg-gray-50;
+    }
+
+    [data-theme="business"] .bg-theme-subtle,
+    [data-theme="dark"] .bg-theme-subtle {
+        @apply bg-white/5;
+    }
+
+    /* Primary buttons */
+    .btn-primary {
+        @apply bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-semibold px-6 py-2.5 rounded-lg shadow-lg hover:from-indigo-600 hover:to-violet-600 transition-all duration-200;
+    }
+}
+
+/* Light mode text utilities for better contrast */
+[data-theme="corporate"] .text-secondary {
+    @apply text-gray-600;
+
+    [data-theme="business"] .text-secondary,
+    [data-theme="dark"] .text-secondary {
+        @apply text-slate-400;
+    }
+
+    [data-theme="corporate"] .text-muted {
+        @apply text-gray-500;
+    }
+
+    [data-theme="business"] .text-muted,
+    [data-theme="dark"] .text-muted {
+        @apply text-slate-500;
+    }
+}

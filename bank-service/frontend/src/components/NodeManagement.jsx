@@ -9,16 +9,19 @@ const NodeManagement = ({ apiPort }) => {
 
     const fetchData = async () => {
         try {
+            setLoading(true);
             // Fetch all nodes from Main System
             const nodesRes = await axios.get('http://localhost:5000/nodes');
             // Fetch trusted nodes from Bank Backend
             const settingsRes = await axios.get(`http://localhost:${apiPort}/bank/settings`);
 
-            setNodes(nodesRes.data);
+            setNodes(nodesRes.data || []);
             setTrustedNodes(settingsRes.data.trustedNodes || []);
-            setLoading(false);
         } catch (error) {
             console.error("Error fetching data", error);
+            setNodes([]);
+            setTrustedNodes([]);
+        } finally {
             setLoading(false);
         }
     };
@@ -43,7 +46,20 @@ const NodeManagement = ({ apiPort }) => {
         }
     };
 
-    if (loading) return <div>Loading...</div>;
+    if (loading) return (
+        <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-slate-400">Loading nodes...</div>
+        </div>
+    );
+
+    if (nodes.length === 0) return (
+        <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+                <div className="text-slate-400 mb-2">No nodes found</div>
+                <div className="text-slate-500 text-sm">Register a node in the main system to get started</div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="space-y-6">
