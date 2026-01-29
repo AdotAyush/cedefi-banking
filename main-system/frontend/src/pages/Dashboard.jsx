@@ -36,25 +36,32 @@ const Dashboard = () => {
         ? ((transactions.filter(t => t.status === 'APPROVED').length / transactions.length) * 100).toFixed(1)
         : 0;
 
+    // Calculate current month volume
+    const currentMonthVolume = useMemo(() => {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        return transactions
+            .filter(tx => new Date(tx.createdAt) >= startOfMonth)
+            .reduce((acc, tx) => acc + tx.amount, 0);
+    }, [transactions]);
+
     const kpis = [
-        { label: 'Total Volume', value: `$${totalVolume.toLocaleString()}`, delta: '+12.4%', color: 'from-emerald-500 to-teal-500' },
-        { label: 'Active Nodes', value: activeNodes.toString(), delta: '+3', color: 'from-indigo-500 to-violet-500' },
-        { label: 'Success Rate', value: `${successRate}%`, delta: '+1.2%', color: 'from-sky-500 to-cyan-500' },
+        { label: 'Total Volume', value: `$${totalVolume.toLocaleString()}`, delta: null, color: 'from-emerald-500 to-teal-500' },
+        { label: 'Active Nodes', value: activeNodes.toString(), delta: null, color: 'from-indigo-500 to-violet-500' },
+        { label: 'Success Rate', value: `${successRate}%`, delta: null, color: 'from-sky-500 to-cyan-500' },
     ];
 
     // Chart Data Preparation
     const areaData = useMemo(() => {
         const grouped = transactions.reduce((acc, tx) => {
-            const date = new Date(tx.createdAt).toLocaleDateString(); // Assuming createdAt exists
+            const date = new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             if (!acc[date]) acc[date] = 0;
             acc[date] += tx.amount;
             return acc;
         }, {});
-        // Fallback mock data if no transactions
-        if (Object.keys(grouped).length === 0) {
-            return Array.from({ length: 12 }).map((_, i) => ({ name: `M${i + 1}`, volume: 400 + Math.round(Math.random() * 600) }));
-        }
-        return Object.entries(grouped).map(([name, volume]) => ({ name, volume }));
+
+        const data = Object.entries(grouped).map(([name, volume]) => ({ name, volume }));
+        return data.sort((a, b) => new Date(a.name) - new Date(b.name));
     }, [transactions]);
 
     const barData = useMemo(() => {
@@ -69,13 +76,10 @@ const Dashboard = () => {
             return acc;
         }, {});
 
-        // Create array with all days, using 0 for days with no transactions
-        const result = daysOfWeek.map(day => ({
+        return daysOfWeek.map(day => ({
             name: day,
             txs: grouped[day] || 0
         }));
-
-        return result;
     }, [transactions]);
 
 
@@ -93,8 +97,8 @@ const Dashboard = () => {
                         <div className="text-sm/5 opacity-90">{k.label}</div>
                         <div className="mt-2 text-3xl font-extrabold">{k.value}</div>
                         <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs">
-                            <span className="h-2 w-2 rounded-full bg-white"></span>
-                            {k.delta} vs last period
+                            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Live data
                         </div>
                     </motion.div>
                 ))}
@@ -104,45 +108,55 @@ const Dashboard = () => {
                 <div className="col-span-2 rounded-2xl bg-theme-subtle ring-1 ring-theme p-4">
                     <div className="flex items-center justify-between p-2">
                         <div>
-                            <div className="text-sm text-theme-secondary">Monthly Volume</div>
-                            <div className="text-xl font-bold">$84,120</div>
+                            <div className="text-sm text-theme-secondary">Current Month Volume</div>
+                            <div className="text-xl font-bold">${currentMonthVolume.toLocaleString()}</div>
                         </div>
                         <div className="join">
-                            <button className="btn btn-xs join-item btn-ghost">1M</button>
-                            <button className="btn btn-xs join-item btn-ghost">3M</button>
-                            <button className="btn btn-xs join-item btn-primary">1Y</button>
+                            <button className="btn btn-xs join-item btn-primary">MTD</button>
                         </div>
                     </div>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={areaData}>
-                                <defs>
-                                    <linearGradient id="grad1" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#818cf8" stopOpacity={0.6} />
-                                        <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} />
-                                <XAxis dataKey="name" stroke="#94a3b8" />
-                                <YAxis stroke="#94a3b8" />
-                                <Tooltip contentStyle={{ background: 'rgba(2,6,23,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} />
-                                <Area type="monotone" dataKey="volume" stroke="#818cf8" strokeWidth={2} fillOpacity={1} fill="url(#grad1)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                    <div className="h-64 relative">
+                        {areaData.length === 0 ? (
+                            <div className="absolute inset-0 flex items-center justify-center text-theme-muted italic text-sm">
+                                No transaction data available for this period
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={areaData}>
+                                    <defs>
+                                        <linearGradient id="grad1" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#818cf8" stopOpacity={0.6} />
+                                            <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} />
+                                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
+                                    <YAxis stroke="#94a3b8" fontSize={12} />
+                                    <Tooltip contentStyle={{ background: 'rgba(2,6,23,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} />
+                                    <Area type="monotone" dataKey="volume" stroke="#818cf8" strokeWidth={2} fillOpacity={1} fill="url(#grad1)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
                 <div className="rounded-2xl bg-theme-subtle ring-1 ring-theme p-4">
-                    <div className="text-sm text-theme-secondary">Weekly Transactions</div>
-                    <div className="h-64 mt-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={barData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} />
-                                <XAxis dataKey="name" stroke="#94a3b8" />
-                                <YAxis stroke="#94a3b8" />
-                                <Tooltip contentStyle={{ background: 'rgba(2,6,23,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} />
-                                <Bar dataKey="txs" radius={[6, 6, 0, 0]} fill="#22d3ee" />
-                            </BarChart>
-                        </ResponsiveContainer>
+                    <div className="text-sm text-theme-secondary">Weekly Distribution</div>
+                    <div className="h-64 mt-2 relative">
+                        {transactions.length === 0 ? (
+                            <div className="absolute inset-0 flex items-center justify-center text-theme-muted italic text-sm">
+                                Waiting for data...
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={barData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} />
+                                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
+                                    <YAxis stroke="#94a3b8" fontSize={12} />
+                                    <Tooltip contentStyle={{ background: 'rgba(2,6,23,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} />
+                                    <Bar dataKey="txs" radius={[6, 6, 0, 0]} fill="#22d3ee" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
             </div>
@@ -154,10 +168,12 @@ const Dashboard = () => {
                         <motion.div key={tx._id || i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-3 py-3">
                             <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-500 grid place-items-center">💸</div>
                             <div className="flex-1">
-                                <div className="font-medium">{tx.transactionId} sent</div>
+                                <div className="font-medium">{tx.transactionId}</div>
                                 <div className="text-xs text-theme-muted">to {tx.recipient?.substring(0, 16)}...</div>
                             </div>
-                            <div className="text-emerald-400 font-semibold">+$ {tx.amount}</div>
+                            <div className={`font-semibold ${tx.status === 'REJECTED' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                {tx.status === 'REJECTED' ? '-' : '+'}$ {tx.amount.toLocaleString()}
+                            </div>
                         </motion.div>
                     ))}
                     {transactions.length === 0 && <div className="p-4 text-center text-theme-muted">No recent activity</div>}

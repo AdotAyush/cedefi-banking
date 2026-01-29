@@ -1,3 +1,10 @@
 node_modules/
 .pids/
 logs/
+package-lock.json
+*.pid
+*.odt*
+.env
+*.log
+./bank-service/frontend/node_modules
+./bank-service/*.log
