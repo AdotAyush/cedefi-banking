@@ -1,4 +1,5 @@
 const Node = require('../models/Node');
+const { getAllNodeReputations } = require('../services/ReputationService');
 
 const registerNode = async (req, res) => {
     try {
@@ -61,4 +62,16 @@ const verifyNode = async (req, res) => {
     }
 };
 
-module.exports = { registerNode, getNodes, verifyNode };
+const getNodeReputations = async (req, res) => {
+    try {
+        const reputations = await getAllNodeReputations();
+        res.json({
+            total: reputations.length,
+            nodes: reputations
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports = { registerNode, getNodes, verifyNode, getNodeReputations };

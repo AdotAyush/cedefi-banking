@@ -2,6 +2,7 @@ const Transaction = require('../models/Transaction');
 const bankService = require('../services/BankIntegrationService');
 const consensusService = require('../services/ConsensusService');
 const blockchainService = require('../services/BlockchainService');
+const { updateNodeReputations, getNodeReputation } = require('../services/ReputationService');
 
 const createTransaction = async (req, res) => {
     try {
@@ -66,8 +67,18 @@ const voteOnTransaction = async (req, res) => {
             return res.status(400).json({ error: 'Already voted' });
         }
 
-        transaction.votes.push({ voter, decision, timestamp: new Date() });
+        // Get voter's reputation weight (from blockchain or default)
+        const weight = await getNodeReputation(voter);
+        
+        transaction.votes.push({ 
+            voter, 
+            decision, 
+            weight,
+            timestamp: new Date() 
+        });
         await transaction.save();
+
+        console.log(`Vote recorded: ${voter.slice(0, 10)}... voted ${decision ? 'YES' : 'NO'} with weight ${weight}`);
 
         // Trigger Bank Approvals asynchronously (Real-time check)
         // We wait for this to ensure we have the latest bank signatures before consensus
@@ -98,9 +109,21 @@ const voteOnTransaction = async (req, res) => {
         if (status && status !== transaction.status) {
             transaction.status = status;
             await transaction.save();
+            
             // Write to Blockchain
             if (status === 'APPROVED' || status === 'REJECTED') {
                 await blockchainService.recordTransactionResult(transactionId, status);
+                
+                // HYBRID APPROACH: Use BANK approval as ground truth, not consensus
+                // Bank approval = external validator = objective truth
+                const bankApproved = transaction.bankApprovals.length > 0;
+                
+                await updateNodeReputations(
+                    transactionId,
+                    bankApproved, // ← Use bank decision as truth
+                    transaction.votes.map(v => ({ nodeAddress: v.voter, decision: v.decision })),
+                    transaction.bankApprovals.length
+                );
             }
         }
 
@@ -168,9 +191,20 @@ const bankApproval = async (req, res) => {
         if (status && status !== transaction.status) {
             transaction.status = status;
             await transaction.save();
+            
             // Write to Blockchain
             if (status === 'APPROVED' || status === 'REJECTED') {
                 await blockchainService.recordTransactionResult(transactionId, status);
+                
+                // HYBRID APPROACH: Use BANK approval as ground truth, not consensus
+                const bankApproved = transaction.bankApprovals.length > 0;
+                
+                await updateNodeReputations(
+                    transactionId,
+                    bankApproved, // ← Use bank decision as truth
+                    transaction.votes.map(v => ({ nodeAddress: v.voter, decision: v.decision })),
+                    transaction.bankApprovals.length
+                );
             }
         }
 

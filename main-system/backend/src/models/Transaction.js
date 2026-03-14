@@ -20,6 +20,7 @@ const TransactionSchema = new mongoose.Schema({
     votes: [{
         voter: String,
         decision: Boolean, // true = YES, false = NO
+        weight: { type: Number, default: 50 }, // Vote weight based on reputation (0-100)
         timestamp: { type: Date, default: Date.now }
     }],
     bankApprovals: [{
