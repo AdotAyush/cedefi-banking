@@ -17,7 +17,7 @@ class EmailService {
     async sendOTPEmail(email, code) {
         try {
             console.log('=====================================');
-            console.log('📧 EMAIL OTP SERVICE');
+            console.log('EMAIL OTP SERVICE');
             console.log('=====================================');
             console.log(`To: ${email}`);
             console.log(`OTP Code: ${code}`);
@@ -46,7 +46,7 @@ class EmailService {
                     };
 
                     await sgMail.send(msg);
-                    console.log('✅ Email sent successfully via SendGrid');
+                    console.log('Email sent successfully via SendGrid');
 
                     return {
                         success: true,
@@ -54,16 +54,16 @@ class EmailService {
                     };
                 } catch (sendGridError) {
                     const errorDetail = sendGridError.response ? JSON.stringify(sendGridError.response.body) : sendGridError.message;
-                    console.error('❌ SendGrid error:', errorDetail);
+                    console.error('SendGrid error:', errorDetail);
                     if (sendGridError.code === 403) {
-                        console.error('💡 TIP: This usually means your "From" email is not verified in SendGrid or your API key lacks permissions.');
+                        console.error('TIP: This usually means your "From" email is not verified in SendGrid or your API key lacks permissions.');
                     }
-                    console.warn('⚠️  Falling back to console-only mode');
+                    console.warn('Falling back to console-only mode');
                     // Fall through to return success (console logged above)
                 }
             } else {
-                console.warn('⚠️  SENDGRID_API_KEY not configured or invalid - using mock mode');
-                console.log('💡 To enable real emails, set SENDGRID_API_KEY in .env file');
+                console.warn('SENDGRID_API_KEY not configured or invalid - using mock mode');
+                console.log('To enable real emails, set SENDGRID_API_KEY in .env file');
             }
 
             return {

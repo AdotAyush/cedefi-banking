@@ -17,7 +17,7 @@ class SMSService {
     async sendOTPSMS(phoneNumber, code) {
         try {
             console.log('=====================================');
-            console.log('📱 SMS OTP SERVICE');
+            console.log('SMS OTP SERVICE');
             console.log('=====================================');
             console.log(`To: ${phoneNumber}`);
             console.log(`OTP Code: ${code}`);
@@ -47,15 +47,15 @@ class SMSService {
                     });
 
                     if (response.data.type === 'success') {
-                        console.log('✅ SMS sent successfully via MSG91');
+                        console.log('SMS sent successfully via MSG91');
                         return {
                             success: true,
                             message: 'SMS sent successfully via MSG91'
                         };
                     }
                 } catch (msg91Error) {
-                    console.error('❌ MSG91 error:', msg91Error.message);
-                    console.warn('⚠️  MSG91 failed, trying Fast2SMS...');
+                    console.error('MSG91 error:', msg91Error.message);
+                    console.warn('MSG91 failed, trying Fast2SMS...');
                 }
             }
 
@@ -80,7 +80,7 @@ class SMSService {
                     });
 
                     if (response.data.return === true) {
-                        console.log('✅ SMS sent successfully via Fast2SMS');
+                        console.log('SMS sent successfully via Fast2SMS');
                         return {
                             success: true,
                             message: 'SMS sent successfully via Fast2SMS'
@@ -88,15 +88,15 @@ class SMSService {
                     }
                 } catch (fast2smsError) {
                     const errorDetail = fast2smsError.response ? JSON.stringify(fast2smsError.response.data) : fast2smsError.message;
-                    console.error('❌ Fast2SMS error:', errorDetail);
-                    console.warn('⚠️  Fast2SMS failed, falling back to console mode');
+                    console.error('Fast2SMS error:', errorDetail);
+                    console.warn('Fast2SMS failed, falling back to console mode');
                 }
             }
 
             // No valid SMS service configured
             if (!process.env.MSG91_AUTH_KEY && !process.env.FAST2SMS_API_KEY) {
-                console.warn('⚠️  No SMS service configured - using mock mode');
-                console.log('💡 To enable real SMS in India, configure one of these:');
+                console.warn('No SMS service configured - using mock mode');
+                console.log('To enable real SMS in India, configure one of these:');
                 console.log('   Option 1 (MSG91): MSG91_AUTH_KEY, MSG91_SENDER_ID, MSG91_TEMPLATE_ID');
                 console.log('   Option 2 (Fast2SMS): FAST2SMS_API_KEY, FAST2SMS_SENDER_ID');
             }

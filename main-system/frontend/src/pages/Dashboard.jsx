@@ -2,6 +2,7 @@ import { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { FaMoneyBillWave } from 'react-icons/fa';
 import AuthContext from '../context/AuthContext';
 
 const Dashboard = () => {
@@ -166,7 +167,7 @@ const Dashboard = () => {
                 <div className="divide-y divide-white/5">
                     {transactions.slice(0, 6).map((tx, i) => (
                         <motion.div key={tx._id || i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-3 py-3">
-                            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-500 grid place-items-center">💸</div>
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-500 grid place-items-center"><FaMoneyBillWave className="text-white" /></div>
                             <div className="flex-1">
                                 <div className="font-medium">{tx.transactionId}</div>
                                 <div className="text-xs text-theme-muted">to {tx.recipient?.substring(0, 16)}...</div>
