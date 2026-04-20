@@ -1,6 +1,13 @@
 const Node = require('../models/Node');
 const { getAllNodeReputations } = require('../services/ReputationService');
 
+// Must match derivePersonality in NodeAutoVoteService.js
+function derivePersonality(publicKey) {
+    const sum = (publicKey || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const types = ['standard', 'conservative', 'fraud-detection', 'liberal', 'strict'];
+    return types[sum % types.length];
+}
+
 const registerNode = async (req, res) => {
     try {
         const { url, name, publicKey } = req.body;
@@ -16,7 +23,8 @@ const registerNode = async (req, res) => {
             name,
             publicKey,
             status: 'PENDING',
-            reputation: 50
+            reputation: 50,
+            personality: derivePersonality(publicKey)
         });
         await node.save();
 

@@ -7,6 +7,11 @@ const NodeSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true },
     status: { type: String, enum: ['PENDING', 'ACTIVE', 'FRAUDULENT'], default: 'PENDING' },
     reputation: { type: Number, default: 50 },
+    personality: {
+        type: String,
+        enum: ['standard', 'conservative', 'fraud-detection', 'liberal', 'strict'],
+        default: 'standard'
+    },
     history: [{
         action: String,
         timestamp: { type: Date, default: Date.now }

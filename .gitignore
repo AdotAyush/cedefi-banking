@@ -63,3 +63,5 @@ Thumbs.db
 
 # Project specific
 startup.log
+
+*.log

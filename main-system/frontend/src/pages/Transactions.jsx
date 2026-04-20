@@ -7,6 +7,7 @@ import AuthContext from '../context/AuthContext';
 const Transactions = () => {
     const { user } = useContext(AuthContext);
     const [transactions, setTransactions] = useState([]);
+    const [nodes, setNodes] = useState([]);
     const [formData, setFormData] = useState({ transactionId: '', sender: user?.did || '', recipient: '', amount: '' });
     const [filter, setFilter] = useState('ALL');
     const [searchTerm, setSearchTerm] = useState('');
@@ -19,10 +20,14 @@ const Transactions = () => {
 
     const fetchTransactions = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/transactions');
-            setTransactions(res.data);
+            const [txRes, nodeRes] = await Promise.all([
+                axios.get('http://localhost:5000/transactions'),
+                axios.get('http://localhost:5000/nodes'),
+            ]);
+            setTransactions(txRes.data);
+            setNodes(nodeRes.data);
         } catch (error) {
-            console.error("Error fetching transactions", error);
+            console.error('Error fetching transactions', error);
         }
     };
 
@@ -82,7 +87,7 @@ const Transactions = () => {
 
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium data-[theme=corporate]:text-gray-700 data-[theme=business]:text-slate-300" data-theme={document.documentElement.getAttribute('data-theme')}>Transaction ID</label>
+                        <label className="text-sm font-medium text-slate-300">Transaction ID</label>
                         <div className="relative">
                             <FaHashtag className="absolute left-3 top-3 text-slate-500 text-xs" />
                             <input placeholder="TX-123" className="input input-bordered w-full pl-8 bg-theme-subtle border-theme focus:border-indigo-500"
@@ -90,17 +95,17 @@ const Transactions = () => {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-medium data-[theme=corporate]:text-gray-700 data-[theme=business]:text-slate-300" data-theme={document.documentElement.getAttribute('data-theme')}>Sender (DID)</label>
+                        <label className="text-sm font-medium text-slate-300">Sender (DID)</label>
                         <input placeholder="did:cedefi:0x..."
                             value={formData.sender} readOnly className="input input-bordered w-full bg-theme-subtle border-theme opacity-50 cursor-not-allowed" />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-medium data-[theme=corporate]:text-gray-700 data-[theme=business]:text-slate-300" data-theme={document.documentElement.getAttribute('data-theme')}>Recipient (DID)</label>
+                        <label className="text-sm font-medium text-slate-300">Recipient (DID)</label>
                         <input placeholder="did:cedefi:0x..." className="input input-bordered w-full bg-theme-subtle border-theme focus:border-indigo-500"
                             value={formData.recipient} onChange={e => setFormData({ ...formData, recipient: e.target.value })} required />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-medium data-[theme=corporate]:text-gray-700 data-[theme=business]:text-slate-300" data-theme={document.documentElement.getAttribute('data-theme')}>Amount</label>
+                        <label className="text-sm font-medium text-slate-300">Amount</label>
                         <div className="relative">
                             <FaMoneyBillWave className="absolute left-3 top-3 text-slate-500 text-xs" />
                             <input type="number" placeholder="100" className="input input-bordered w-full pl-8 bg-theme-subtle border-theme focus:border-indigo-500"
@@ -120,7 +125,7 @@ const Transactions = () => {
                 <div className="min-w-full inline-block align-middle">
                     <table className="table w-full">
                         <thead>
-                            <tr className="border-b data-[theme=corporate]:text-gray-700 data-[theme=corporate]:border-gray-200 data-[theme=business]:text-slate-300 data-[theme=business]:border-theme" data-theme={typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : 'business'}>
+                            <tr className="border-b text-slate-300 border-white/10">
                                 <th className="min-w-[120px]">ID</th>
                                 <th className="min-w-[150px]">Sender</th>
                                 <th className="min-w-[150px]">Recipient</th>
@@ -166,7 +171,7 @@ const Transactions = () => {
                                                 <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden">
                                                     <div
                                                         className="h-full bg-indigo-500 transition-all duration-500"
-                                                        style={{ width: `${(tx.votes.filter(v => v.decision).length / 10) * 100}%` }}
+                                                        style={{ width: nodes.length > 0 ? `${(tx.votes.filter(v => v.decision).length / nodes.filter(n => n.isActive).length) * 100}%` : '0%' }}
                                                     />
                                                 </div>
                                                 <span className="font-bold text-xs">{tx.votes.filter(v => v.decision).length}</span>

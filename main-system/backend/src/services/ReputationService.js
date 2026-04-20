@@ -46,78 +46,70 @@ try {
  * @param {number} bankApprovalCount - Number of banks that approved
  */
 const updateNodeReputations = async (transactionId, bankApproved, votes, bankApprovalCount = 0) => {
-    if (!CONTRACT_ADDRESSES.NodeRegistry) {
-        console.warn('NodeRegistry address not set. Skipping reputation update.');
-        return;
+    console.log(`\n=== REPUTATION UPDATE for ${transactionId} ===`);
+    console.log(`Ground Truth: ${bankApproved ? 'APPROVED' : 'REJECTED'} (${bankApprovalCount > 0 ? 'bank-sourced' : 'consensus-sourced'})`);
+    console.log(`Total Votes: ${votes.length}`);
+    console.log('='.repeat(60));
+
+    // Build blockchain contract reference if available (optional — DB always updates)
+    let contract = null;
+    if (CONTRACT_ADDRESSES.NodeRegistry) {
+        try {
+            const abi = getContractABI('NodeRegistry');
+            if (abi) contract = new ethers.Contract(CONTRACT_ADDRESSES.NodeRegistry, abi, wallet);
+        } catch { /* blockchain offline */ }
     }
 
-    const abi = getContractABI('NodeRegistry');
-    if (!abi) return;
-
-    const contract = new ethers.Contract(CONTRACT_ADDRESSES.NodeRegistry, abi, wallet);
-
-    console.log(`\n=== HYBRID REPUTATION UPDATE for ${transactionId} ===`);
-    console.log(`Ground Truth (Bank Decision): ${bankApproved ? 'APPROVED' : 'REJECTED'}`);
-    console.log(`Bank Approvals: ${bankApprovalCount}`);
-    console.log(`Total Votes: ${votes.length}`);
-    console.log(`Strategy: Nodes judged against BANK decision (external truth)`);
-    console.log('='.repeat(60));
+    const Node = require('../models/Node');
 
     for (const vote of votes) {
         try {
-            // CRITICAL: Compare vote against BANK decision, not consensus
-            const agreedWithBank = vote.decision === bankApproved;
-            
-            // Get current reputation to apply caps
-            const currentReputation = await contract.getNodeReputation(vote.nodeAddress);
-            const currentRep = Number(currentReputation);
+            const agreedWithTruth = vote.decision === bankApproved;
+
+            // Read current reputation from DB (always available)
+            const dbNode = await Node.findOne({ publicKey: vote.nodeAddress });
+            const currentRep = dbNode ? (dbNode.reputation || 50) : 50;
 
             let reputationChange = 0;
-            let action = '';
-            
-            if (agreedWithBank) {
-                // Node agreed with external bank validators
+
+            if (agreedWithTruth) {
                 if (currentRep >= 85) {
-                    // Cap at 85: Slower growth to prevent dominance
                     reputationChange = 2;
-                    action = 'CORRECT (capped growth +2)';
                 } else if (currentRep >= 70) {
-                    // Moderate growth
                     reputationChange = 3;
-                    action = 'CORRECT (moderate +3)';
                 } else {
-                    // Normal growth for lower reputation nodes
                     reputationChange = 5;
-                    action = 'CORRECT (normal +5)';
                 }
-                
-                console.log(`✓ Node ${vote.nodeAddress.slice(0, 10)}... agreed with bank: ${action}`);
-                
-                // Manually update with custom increment
-                if (reputationChange > 0) {
-                    const newRep = Math.min(currentRep + reputationChange, 95); // Hard cap at 95
-                    const tx = await contract.updateReputation(vote.nodeAddress, newRep);
-                    await tx.wait();
-                    
-                    // Also increment vote counters
-                    const txVote = await contract.incrementCorrectVote(vote.nodeAddress);
-                    await txVote.wait();
+                console.log(`✓ Node ${vote.nodeAddress.slice(0, 10)}... correct (+${reputationChange})`);
+
+                if (contract) {
+                    try {
+                        const newRep = Math.min(currentRep + reputationChange, 95);
+                        const tx = await contract.updateReputation(vote.nodeAddress, newRep);
+                        await tx.wait();
+                        const txVote = await contract.incrementCorrectVote(vote.nodeAddress);
+                        await txVote.wait();
+                    } catch { /* blockchain update optional */ }
                 }
-                
             } else {
-                // Node disagreed with bank validators
                 reputationChange = -3;
-                action = 'WRONG (-3)';
-                
-                console.log(`✗ Node ${vote.nodeAddress.slice(0, 10)}... disagreed with bank: ${action}`);
-                const tx = await contract.incrementIncorrectVote(vote.nodeAddress);
-                await tx.wait();
+                console.log(`✗ Node ${vote.nodeAddress.slice(0, 10)}... wrong (${reputationChange})`);
+
+                if (contract) {
+                    try {
+                        const tx = await contract.incrementIncorrectVote(vote.nodeAddress);
+                        await tx.wait();
+                    } catch { /* blockchain update optional */ }
+                }
             }
 
-            // Get final reputation
-            const finalReputation = await contract.getNodeReputation(vote.nodeAddress);
-            console.log(`  Reputation: ${currentRep} → ${finalReputation.toString()} (${reputationChange >= 0 ? '+' : ''}${reputationChange})`);
-
+            // Always update DB so reputation actually changes over time
+            if (dbNode) {
+                const newRep = Math.min(Math.max(currentRep + reputationChange, 10), 95);
+                dbNode.reputation = newRep;
+                await dbNode.save();
+                console.log(`  DB reputation: ${currentRep} → ${newRep}`);
+            }
         } catch (error) {
             console.error(`Error updating reputation for ${vote.nodeAddress}:`, error.message);
         }
@@ -131,20 +123,27 @@ const updateNodeReputations = async (transactionId, bankApproved, votes, bankApp
  * @param {string} nodeAddress - Node wallet address
  */
 const getNodeReputation = async (nodeAddress) => {
-    if (!CONTRACT_ADDRESSES.NodeRegistry) {
-        return 50; // Default reputation
+    // Try blockchain first
+    if (CONTRACT_ADDRESSES.NodeRegistry) {
+        try {
+            const abi = getContractABI('NodeRegistry');
+            if (abi) {
+                const contract = new ethers.Contract(CONTRACT_ADDRESSES.NodeRegistry, abi, provider);
+                const reputation = await contract.getNodeReputation(nodeAddress);
+                const rep = Number(reputation);
+                if (rep > 0) return rep;
+            }
+        } catch {
+            // Fall through to DB
+        }
     }
 
-    const abi = getContractABI('NodeRegistry');
-    if (!abi) return 50;
-
-    const contract = new ethers.Contract(CONTRACT_ADDRESSES.NodeRegistry, abi, provider);
-
+    // DB fallback — works when blockchain is offline
     try {
-        const reputation = await contract.getNodeReputation(nodeAddress);
-        return Number(reputation);
-    } catch (error) {
-        console.error('Error getting node reputation:', error.message);
+        const Node = require('../models/Node');
+        const node = await Node.findOne({ publicKey: nodeAddress });
+        return node ? (node.reputation || 50) : 50;
+    } catch {
         return 50;
     }
 };

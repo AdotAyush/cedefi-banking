@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const OTP = require('../models/OTP');
 const jwt = require('jsonwebtoken');
 const { ethers } = require('ethers');
 const otpService = require('../services/otpService');
@@ -335,4 +336,57 @@ exports.register = async (req, res) => {
             step2b: '/api/auth/register/verify-complete'
         }
     });
+};
+
+/**
+ * DEV ONLY: Retrieve latest pending OTPs for local testing
+ * Returns OTP codes for email and/or phone – disabled in production
+ */
+exports.getDevOTP = async (req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+        return res.status(404).json({ message: 'Not found' });
+    }
+
+    const { email, phone } = req.query;
+
+    if (!email && !phone) {
+        return res.status(400).json({ message: 'email or phone query param required' });
+    }
+
+    try {
+        const results = {};
+
+        if (email) {
+            const record = await OTP.findOne({
+                identifier: email.toLowerCase().trim(),
+                type: 'email',
+                verified: false
+            }).sort({ createdAt: -1 });
+
+            if (record && !record.isExpired()) {
+                results.emailOTP = { code: record.code, expiresAt: record.expiresAt };
+            }
+        }
+
+        if (phone) {
+            let normalizedPhone = phone;
+            try {
+                normalizedPhone = smsService.normalizeIndianPhoneNumber(phone);
+            } catch (_) { /* use as-is */ }
+
+            const record = await OTP.findOne({
+                identifier: normalizedPhone,
+                type: 'phone',
+                verified: false
+            }).sort({ createdAt: -1 });
+
+            if (record && !record.isExpired()) {
+                results.phoneOTP = { code: record.code, expiresAt: record.expiresAt };
+            }
+        }
+
+        return res.json(results);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
 };

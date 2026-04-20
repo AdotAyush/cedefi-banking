@@ -4,7 +4,7 @@ import Topbar from './Topbar';
 import AuthContext from '../context/AuthContext';
 
 const Layout = ({ children }) => {
-    const [theme, setTheme] = useState('corporate');
+    const [theme, setTheme] = useState('business');
     const { user, logout } = useContext(AuthContext);
 
     const isLight = theme === 'corporate';

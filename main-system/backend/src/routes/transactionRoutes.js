@@ -4,6 +4,7 @@ const controller = require('../controllers/transactionController');
 
 router.post('/', controller.createTransaction);
 router.post('/:transactionId/vote', controller.voteOnTransaction);
+router.post('/:transactionId/trigger-votes', controller.triggerVotes);
 router.post('/:transactionId/claim', controller.claimTransaction);
 router.post('/:transactionId/bank-approval', controller.bankApproval);
 router.post('/faucet', controller.faucet);

@@ -66,12 +66,14 @@ function Sidebar({ theme, setTheme, user, logout }) {
                 {user && (
                     <div className={`rounded-xl p-3 ${isLight ? 'bg-gray-50 ring-1 ring-gray-200' : 'bg-white/5 ring-1 ring-white/10'}`}>
                         <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 grid place-items-center font-bold text-white">
-                                {user.username?.charAt(0).toUpperCase() || <FaUser />}
+                            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 grid place-items-center font-bold text-white shrink-0">
+                                {(user.email?.charAt(0) || user.did?.slice(-1) || 'U').toUpperCase()}
                             </div>
                             {open && (
                                 <div className="flex-1 overflow-hidden">
-                                    <div className={`font-semibold truncate ${isLight ? 'text-gray-900' : 'text-white'}`}>{user.username}</div>
+                                    <div className={`font-semibold truncate ${isLight ? 'text-gray-900' : 'text-white'}`}>
+                                        {user.email?.split('@')[0] || user.did?.slice(-8) || 'User'}
+                                    </div>
                                     <div className={`text-xs truncate ${isLight ? 'text-gray-500' : 'text-slate-400'}`}>{user.role}</div>
                                 </div>
                             )}

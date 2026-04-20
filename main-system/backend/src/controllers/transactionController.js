@@ -3,6 +3,7 @@ const bankService = require('../services/BankIntegrationService');
 const consensusService = require('../services/ConsensusService');
 const blockchainService = require('../services/BlockchainService');
 const { updateNodeReputations, getNodeReputation } = require('../services/ReputationService');
+const { triggerAutoVotesForTransaction } = require('../services/NodeAutoVoteService');
 
 const createTransaction = async (req, res) => {
     try {
@@ -48,7 +49,27 @@ const createTransaction = async (req, res) => {
             }
         });
 
+        // Trigger auto-voting from all active nodes asynchronously (non-blocking)
+        // Small delay gives bank approvals a chance to arrive first
+        setTimeout(() => triggerAutoVotesForTransaction(transactionId), 2000);
+
         res.status(201).json(transaction);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const triggerVotes = async (req, res) => {
+    try {
+        const { transactionId } = req.params;
+        const transaction = await Transaction.findOne({ transactionId });
+        if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
+        if (transaction.status !== 'PENDING') {
+            return res.status(400).json({ error: `Transaction is already ${transaction.status}` });
+        }
+        // Fire and forget — client will poll for updates
+        triggerAutoVotesForTransaction(transactionId);
+        res.json({ message: 'Auto-voting triggered', transactionId });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -114,13 +135,16 @@ const voteOnTransaction = async (req, res) => {
             if (status === 'APPROVED' || status === 'REJECTED') {
                 await blockchainService.recordTransactionResult(transactionId, status);
                 
-                // HYBRID APPROACH: Use BANK approval as ground truth, not consensus
-                // Bank approval = external validator = objective truth
-                const bankApproved = transaction.bankApprovals.length > 0;
+                // Ground truth: bank decision if banks participated; otherwise use consensus result
+                const hasBankInput = transaction.bankApprovals.length > 0 ||
+                    (transaction.bankRejections && transaction.bankRejections.length > 0);
+                const groundTruth = hasBankInput
+                    ? transaction.bankApprovals.length > 0
+                    : (status === 'APPROVED');
                 
                 await updateNodeReputations(
                     transactionId,
-                    bankApproved, // ← Use bank decision as truth
+                    groundTruth,
                     transaction.votes.map(v => ({ nodeAddress: v.voter, decision: v.decision })),
                     transaction.bankApprovals.length
                 );
@@ -178,12 +202,32 @@ const bankApproval = async (req, res) => {
                     timestamp: new Date()
                 });
                 await transaction.save();
-                console.log(`[Main System] Received approval from ${bankId} for ${transactionId}`);
+                console.log(`[Main System] Bank approval from ${bankId} for ${transactionId}`);
             }
         } else {
-            console.log(`[Main System] Received REJECTION from ${bankId} for ${transactionId}`);
-            // Logic for rejection could be added here (e.g., if any bank rejects, fail tx?)
-            // For now, we just log it. ConsensusService handles the "needs approval" logic.
+            // Bank veto — immediately reject the transaction (banks are ground truth)
+            console.log(`[Main System] Bank ${bankId} VETOED ${transactionId} — rejecting immediately`);
+            if (!transaction.bankRejections) transaction.bankRejections = [];
+            transaction.bankRejections.push({
+                bankId,
+                reason: req.body.reason || 'Bank rejected transaction',
+                timestamp: new Date()
+            });
+            transaction.status = 'REJECTED';
+            await transaction.save();
+
+            try { await blockchainService.recordTransactionResult(transactionId, 'REJECTED'); } catch {}
+
+            // Nodes that voted NO were correct
+            if (transaction.votes.length > 0) {
+                await updateNodeReputations(
+                    transactionId,
+                    false,
+                    transaction.votes.map(v => ({ nodeAddress: v.voter, decision: v.decision })),
+                    0
+                );
+            }
+            return res.json({ message: `Transaction ${transactionId} rejected by bank ${bankId}`, transaction });
         }
 
         // Check Consensus immediately
@@ -196,12 +240,10 @@ const bankApproval = async (req, res) => {
             if (status === 'APPROVED' || status === 'REJECTED') {
                 await blockchainService.recordTransactionResult(transactionId, status);
                 
-                // HYBRID APPROACH: Use BANK approval as ground truth, not consensus
-                const bankApproved = transaction.bankApprovals.length > 0;
-                
+                // Bank approval path — bank approved (rejection already returned above)
                 await updateNodeReputations(
                     transactionId,
-                    bankApproved, // ← Use bank decision as truth
+                    true,
                     transaction.votes.map(v => ({ nodeAddress: v.voter, decision: v.decision })),
                     transaction.bankApprovals.length
                 );
@@ -238,4 +280,4 @@ const faucet = async (req, res) => {
     }
 };
 
-module.exports = { createTransaction, voteOnTransaction, getTransactions, claimTransaction, bankApproval, faucet };
+module.exports = { createTransaction, voteOnTransaction, getTransactions, claimTransaction, bankApproval, faucet, triggerVotes };

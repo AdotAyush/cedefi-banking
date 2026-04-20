@@ -41,7 +41,7 @@ const History = () => {
                     <div className="min-w-full inline-block align-middle">
                         <table className="table w-full">
                             <thead>
-                                <tr className="border-b data-[theme=corporate]:text-gray-700 data-[theme=corporate]:border-gray-200 data-[theme=business]:text-slate-300 data-[theme=business]:border-theme" data-theme={typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') : 'business'}>
+                                <tr className="border-b text-slate-300 border-white/10">
                                     <th className="min-w-[120px]">Transaction ID</th>
                                     <th className="min-w-[100px]">Action</th>
                                     <th className="min-w-[150px]">User</th>

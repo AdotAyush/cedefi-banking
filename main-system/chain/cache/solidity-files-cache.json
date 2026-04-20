@@ -38,8 +38,8 @@
       ]
     },
     "/home/ayush/Documents/cedefi-banking/main-system/chain/contracts/NodeRegistry.sol": {
-      "lastModificationDate": 1769709262532,
-      "contentHash": "d752de4ce7b61364f115b2e2e6e7396e",
+      "lastModificationDate": 1776702272089,
+      "contentHash": "825b6bec7e8a544c756b451c034cb124",
       "sourceName": "contracts/NodeRegistry.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -74,8 +74,8 @@
       ]
     },
     "/home/ayush/Documents/cedefi-banking/main-system/chain/contracts/VoteManager.sol": {
-      "lastModificationDate": 1769709262532,
-      "contentHash": "22b5020fe66ec2fe1b5a402477c9785d",
+      "lastModificationDate": 1776702272090,
+      "contentHash": "0de45cb85be0ac611c2859b8ecc722a4",
       "sourceName": "contracts/VoteManager.sol",
       "solcConfig": {
         "version": "0.8.20",

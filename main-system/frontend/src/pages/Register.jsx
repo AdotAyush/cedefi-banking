@@ -2,9 +2,11 @@ import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { FaUser, FaEnvelope, FaPhone, FaCheckCircle, FaKey, FaIdCard, FaCopy, FaArrowRight, FaArrowLeft } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaPhone, FaCheckCircle, FaKey, FaIdCard, FaCopy, FaArrowRight, FaArrowLeft, FaShieldAlt } from 'react-icons/fa';
 import OTPInput from '../components/OTPInput';
 import ExistingUserDialog from '../components/ExistingUserDialog';
+import DevOTPViewer from '../components/DevOTPViewer';
+import KeyVaultModal from '../components/KeyVaultModal';
 
 const STEPS = {
     EMAIL_PHONE: 1,
@@ -27,6 +29,7 @@ const Register = () => {
     const [loading, setLoading] = useState(false);
     const [successData, setSuccessData] = useState(null);
     const [otpExpiresAt, setOtpExpiresAt] = useState(null);
+    const [showKeyVault, setShowKeyVault] = useState(false);
 
     // Existing user dialog
     const [showExistingDialog, setShowExistingDialog] = useState(false);
@@ -214,6 +217,33 @@ const Register = () => {
                             </div>
                         </div>
 
+                        {/* Encrypted Local Backup */}
+                        <div className="p-4 rounded-xl bg-slate-800/60 border border-emerald-500/20 flex items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-emerald-400 font-semibold text-sm flex items-center gap-2">
+                                    <FaShieldAlt />
+                                    Secure Local Backup (Recommended)
+                                </h3>
+                                <p className="text-slate-400 text-xs mt-0.5">
+                                    Encrypt your private key with a password and save it as a file on your device.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowKeyVault(true)}
+                                className="shrink-0 px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 font-semibold text-sm transition-all whitespace-nowrap"
+                            >
+                                Encrypt &amp; Save
+                            </button>
+                        </div>
+
+                        {/* Key Vault Modal */}
+                        <KeyVaultModal
+                            isOpen={showKeyVault}
+                            onClose={() => setShowKeyVault(false)}
+                            privateKey={successData.privateKey}
+                            did={successData.did}
+                        />
+
                         <button
                             onClick={() => navigate('/login')}
                             className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold shadow-lg shadow-emerald-500/30 transition-all duration-200 hover:shadow-emerald-500/50 hover:scale-[1.02] flex items-center justify-center gap-2"
@@ -341,6 +371,13 @@ const Register = () => {
                                 <p className="text-indigo-400 font-medium">{email}</p>
                                 <p className="text-indigo-400 font-medium">{phoneNumber}</p>
                             </div>
+
+                            {/* Dev-only OTP viewer */}
+                            <DevOTPViewer
+                                email={email}
+                                phone={phoneNumber}
+                                visible={currentStep === STEPS.OTP_VERIFICATION}
+                            />
 
                             <OTPInput
                                 type="email"

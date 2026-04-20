@@ -5,7 +5,8 @@ const {
     handleExistingUserChoice,
     verifyAndCompleteRegistration,
     login,
-    register
+    register,
+    getDevOTP
 } = require('../controllers/authController');
 
 // New multi-step registration endpoints
@@ -15,6 +16,9 @@ router.post('/register/verify-complete', verifyAndCompleteRegistration);
 
 // Existing endpoints
 router.post('/login', login);
+
+// Dev-only: retrieve pending OTPs locally (disabled in production)
+router.get('/dev/otp', getDevOTP);
 
 // Deprecated - kept for backwards compatibility
 router.post('/register', register);

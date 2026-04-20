@@ -1,104 +1,82 @@
 const Transaction = require('../models/Transaction');
 const Node = require('../models/Node');
-const { getNodeReputation } = require('./ReputationService');
 
 /**
- * Check consensus with weighted voting based on node reputation
- * @param {string} transactionId - Transaction ID to check
- * @param {boolean} useWeightedVoting - Use reputation-based weights (default: true)
+ * Check consensus using ACTUAL node reputations from the DB as weights.
+ *
+ * Bug fix: the old code used (totalNodes * 100 * 2/3) as threshold — that assumed
+ * every node has reputation 100. Real nodes start at 50, so the threshold was
+ * unreachable. Now we sum actual DB reputations as the denominator.
+ *
+ * Rules:
+ *  Hard rejection : any bank rejection present → immediate REJECTED
+ *  Rule A         : YES weight >= 2/3 of total active-node weight → APPROVED
+ *  Rule B         : YES weight >= 1/2 of total + at least 1 bank approval → APPROVED
+ *  Soft rejection : NO weight >  1/2 of total active-node weight → REJECTED
  */
-const checkConsensus = async (transactionId, useWeightedVoting = true) => {
+const checkConsensus = async (transactionId) => {
     const transaction = await Transaction.findOne({ transactionId });
     if (!transaction) return null;
     if (transaction.status !== 'PENDING') return transaction.status;
 
-    const totalNodes = await Node.countDocuments({ isActive: true });
+    // Hard rule — a bank rejection immediately settles the transaction
+    if (transaction.bankRejections && transaction.bankRejections.length > 0) {
+        console.log(`\n✗ REJECTED — bank veto for ${transactionId}`);
+        return 'REJECTED';
+    }
 
+    // Fetch live reputations from DB (blockchain may be offline)
+    const activeNodes = await Node.find({ isActive: true, status: 'ACTIVE' });
+    const totalNodes = activeNodes.length;
     if (totalNodes === 0) return 'PENDING';
 
-    let yesVotes, noVotes, totalWeight;
+    // Use ACTUAL reputation sum as denominator (fixes the "threshold unreachable" bug)
+    const totalNodeWeight = activeNodes.reduce((sum, n) => sum + (n.reputation || 50), 0);
 
-    if (useWeightedVoting) {
-        // Calculate weighted votes based on reputation
-        let yesWeight = 0;
-        let noWeight = 0;
-        let maxPossibleWeight = 0;
-
-        for (const vote of transaction.votes) {
-            // Get node reputation from blockchain or use default
-            const reputation = vote.weight || 50; // Use stored weight or default
-            
-            if (vote.decision) {
-                yesWeight += reputation;
-            } else {
-                noWeight += reputation;
-            }
-        }
-
-        // Calculate max possible weight (all active nodes at 100 reputation)
-        maxPossibleWeight = totalNodes * 100;
-        totalWeight = yesWeight + noWeight;
-
-        yesVotes = yesWeight;
-        noVotes = noWeight;
-
-        console.log(`\n=== WEIGHTED Consensus Check for ${transactionId} ===`);
-        console.log(`Total Nodes: ${totalNodes}`);
-        console.log(`Yes Weight: ${yesWeight.toFixed(2)} | No Weight: ${noWeight.toFixed(2)}`);
-        console.log(`Total Weight Cast: ${totalWeight.toFixed(2)} / ${maxPossibleWeight} (max possible)`);
-
-    } else {
-        // Traditional unweighted voting (1 node = 1 vote)
-        yesVotes = transaction.votes.filter(v => v.decision).length;
-        noVotes = transaction.votes.filter(v => !v.decision).length;
-        
-        console.log(`\n=== UNWEIGHTED Consensus Check for ${transactionId} ===`);
-        console.log(`Total Nodes: ${totalNodes}, Yes Votes: ${yesVotes}, No Votes: ${noVotes}`);
+    // Tally weighted votes (weight was snapshotted at vote time)
+    let yesWeight = 0;
+    let noWeight = 0;
+    for (const vote of transaction.votes) {
+        const w = vote.weight || 50;
+        if (vote.decision) yesWeight += w;
+        else noWeight += w;
     }
 
     const bankApprovals = transaction.bankApprovals.length;
 
-    // Weighted voting thresholds
-    const ruleAThreshold = useWeightedVoting 
-        ? (totalNodes * 100 * 2 / 3) // 2/3 of max possible weight
-        : Math.ceil((2 / 3) * totalNodes);
+    // Thresholds — fractions of REAL total weight
+    const ruleAThreshold  = totalNodeWeight * (2 / 3); // 2/3 YES → approved without bank
+    const ruleBThreshold  = totalNodeWeight * (1 / 2); // 1/2 YES + bank → approved
+    const rejectThreshold = totalNodeWeight * (1 / 2); // >1/2 NO  → rejected
 
-    const ruleBNodeThreshold = useWeightedVoting
-        ? (totalNodes * 100 / 2) // 1/2 of max possible weight
-        : Math.ceil((1 / 2) * totalNodes);
+    console.log(`\n=== CONSENSUS: ${transactionId} ===`);
+    console.log(`Active nodes: ${totalNodes} | Total weight: ${totalNodeWeight} | Voted: ${transaction.votes.length}`);
+    console.log(`YES: ${yesWeight.toFixed(1)} | NO: ${noWeight.toFixed(1)} | Bank approvals: ${bankApprovals}`);
+    console.log(`Rule A ≥ ${ruleAThreshold.toFixed(1)} | Rule B ≥ ${ruleBThreshold.toFixed(1)} w/bank | Reject > ${rejectThreshold.toFixed(1)}`);
 
-    const rejectionThreshold = useWeightedVoting
-        ? (totalNodes * 100 / 2) // >1/2 of max possible weight
-        : Math.floor(totalNodes / 2) + 1;
-
-    console.log(`Bank Approvals: ${bankApprovals}`);
-    console.log(`Rule A Threshold: ${ruleAThreshold.toFixed(2)} (2/3 approval)`);
-    console.log(`Rule B Threshold: ${ruleBNodeThreshold.toFixed(2)} (1/2 with bank approval)`);
-    console.log(`Rejection Threshold: ${rejectionThreshold.toFixed(2)} (>1/2 rejection)`);
-
-    // Rejection Rule: > 1/2 nodes reject
-    if (totalNodes > 0 && noVotes > rejectionThreshold) {
-        console.log('✗ Consensus: REJECTED (majority rejection)');
-        console.log('===========================================\n');
+    // Rejection: majority of weight voted NO
+    if (noWeight > rejectThreshold) {
+        console.log('✗ REJECTED — NO weight exceeded majority threshold');
+        console.log('='.repeat(50));
         return 'REJECTED';
     }
 
-    // Rule A: >= 2/3 nodes approve
-    if (totalNodes > 0 && yesVotes >= ruleAThreshold) {
-        console.log('✓ Consensus: APPROVED (Rule A - 2/3 majority)');
-        console.log('===========================================\n');
+    // Rule A: 2/3 supermajority by weight — no bank required
+    if (yesWeight >= ruleAThreshold) {
+        console.log('✓ APPROVED — Rule A: YES weight ≥ 2/3 of total node weight');
+        console.log('='.repeat(50));
         return 'APPROVED';
     }
 
-    // Rule B: >= 1 bank approval AND >= 1/2 node votes
-    if (totalNodes > 0 && bankApprovals >= 1 && yesVotes >= ruleBNodeThreshold) {
-        console.log('✓ Consensus: APPROVED (Rule B - bank + 1/2 nodes)');
-        console.log('===========================================\n');
+    // Rule B: simple majority by weight + at least one bank signed off
+    if (bankApprovals >= 1 && yesWeight >= ruleBThreshold) {
+        console.log('✓ APPROVED — Rule B: bank approval + YES weight ≥ 1/2');
+        console.log('='.repeat(50));
         return 'APPROVED';
     }
 
-    console.log('⏳ Consensus: PENDING (thresholds not met)');
-    console.log('===========================================\n');
+    console.log('⏳ PENDING — thresholds not yet met');
+    console.log('='.repeat(50));
     return 'PENDING';
 };
 
