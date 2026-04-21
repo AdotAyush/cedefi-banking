@@ -341,8 +341,10 @@ function evaluateTransaction(node, transaction, ctx = {}) {
 
 /**
  * Trigger all active nodes that haven't yet voted on a transaction.
+ * Nodes vote in randomized order to ensure equal opportunities for all.
  * Each node applies its rule set with a realistic staggered delay (50–400 ms).
- * Consensus is checked after every vote; voting stops early if consensus is reached.
+ * ALL nodes are allowed to vote even if bank approvals change the status,
+ * ensuring equal participation for reputation and learning purposes.
  *
  * Ground truth for reputation updates:
  *   - If banks participated → bank decision is truth
@@ -367,7 +369,7 @@ async function triggerAutoVotesForTransaction(transactionId) {
         }
 
         const alreadyVotedSet = new Set(transaction.votes.map(v => v.voter));
-        const unvotedNodes = activeNodes.filter(n => !alreadyVotedSet.has(n.publicKey));
+        let unvotedNodes = activeNodes.filter(n => !alreadyVotedSet.has(n.publicKey));
 
         console.log(`\n🤖 [AutoVote] ${unvotedNodes.length} node(s) will vote on ${transactionId}`);
 
@@ -380,6 +382,13 @@ async function triggerAutoVotesForTransaction(transactionId) {
             `recipientRisk:${ctx.recipientRisk} amtDeviation:${ctx.amountDeviation.toFixed(2)}×`
         );
 
+        // Randomize voting order to ensure fair opportunity for all nodes to vote
+        // Fisher-Yates shuffle
+        for (let i = unvotedNodes.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [unvotedNodes[i], unvotedNodes[j]] = [unvotedNodes[j], unvotedNodes[i]];
+        }
+
         for (const node of unvotedNodes) {
             // Realistic per-node network / processing delay
             await new Promise(r => setTimeout(r, 50 + Math.random() * 350));
@@ -387,10 +396,13 @@ async function triggerAutoVotesForTransaction(transactionId) {
             try {
                 // Re-fetch to avoid stale state between nodes
                 const fresh = await Transaction.findOne({ transactionId });
-                if (!fresh || fresh.status !== 'PENDING') {
-                    console.log(`[AutoVote] Stopping — ${transactionId} is no longer PENDING`);
+                if (!fresh) {
+                    console.log(`[AutoVote] Transaction ${transactionId} not found, stopping`);
                     break;
                 }
+
+                // Allow voting even if status changed (e.g., bank approval), but don't override bank decisions
+                const wasPending = fresh.status === 'PENDING';
                 if (fresh.votes.some(v => v.voter === node.publicKey)) continue;
 
                 const { decision, reason } = evaluateTransaction(node, fresh, ctx);
@@ -403,39 +415,67 @@ async function triggerAutoVotesForTransaction(transactionId) {
                 const personality = node.personality || derivePersonality(node.publicKey);
                 console.log(`  ${symbol} [${node.name}] (${personality}, rep=${weight}): ${reason}`);
 
-                // Check whether consensus has been reached after this vote
-                const status = await checkConsensus(transactionId);
-                if (status && status !== fresh.status) {
-                    fresh.status = status;
-                    await fresh.save();
-
-                    if (status === 'APPROVED' || status === 'REJECTED') {
-                        await blockchainService.recordTransactionResult(transactionId, status);
-
-                        // Ground truth: bank decision if banks participated; otherwise consensus
-                        const hasBankInput = fresh.bankApprovals.length > 0 ||
-                            (fresh.bankRejections && fresh.bankRejections.length > 0);
-                        const groundTruth = hasBankInput
-                            ? fresh.bankApprovals.length > 0
-                            : (status === 'APPROVED');
-
-                        await updateNodeReputations(
-                            transactionId,
-                            groundTruth,
-                            fresh.votes.map(v => ({ nodeAddress: v.voter, decision: v.decision })),
-                            fresh.bankApprovals.length
-                        );
-
-                        console.log(`\n✅ [AutoVote] Consensus → ${status} for ${transactionId}\n`);
-                        return;
-                    }
+                // If transaction was pending and now has consensus, log it but don't stop voting
+                if (wasPending && fresh.status !== 'PENDING') {
+                    console.log(`[AutoVote] Transaction ${transactionId} status changed to ${fresh.status} during voting, but continuing to collect all votes`);
                 }
+
+                // Note: We continue voting even if consensus reached, to ensure all nodes participate equally
             } catch (nodeErr) {
                 console.error(`[AutoVote] Error for node ${node.name}:`, nodeErr.message);
             }
         }
 
-        console.log(`[AutoVote] All eligible nodes have voted on ${transactionId}`);
+        // After all nodes have voted, check consensus once (only if no bank decision made)
+        try {
+            const final = await Transaction.findOne({ transactionId });
+            if (final && final.status === 'PENDING') {
+                const finalStatus = await checkConsensus(transactionId);
+                if (finalStatus && finalStatus !== final.status) {
+                    final.status = finalStatus;
+                    await final.save();
+
+                    if (finalStatus === 'APPROVED' || finalStatus === 'REJECTED') {
+                        await blockchainService.recordTransactionResult(transactionId, finalStatus);
+
+                        // Ground truth: bank decision if banks participated; otherwise consensus
+                        const hasBankInput = final.bankApprovals.length > 0 ||
+                            (final.bankRejections && final.bankRejections.length > 0);
+                        const groundTruth = hasBankInput
+                            ? final.bankApprovals.length > 0
+                            : (finalStatus === 'APPROVED');
+
+                        await updateNodeReputations(
+                            transactionId,
+                            groundTruth,
+                            final.votes.map(v => ({ nodeAddress: v.voter, decision: v.decision })),
+                            final.bankApprovals.length
+                        );
+
+                        console.log(`\n✅ [AutoVote] Final Consensus → ${finalStatus} for ${transactionId} (${final.votes.length} total votes)\n`);
+                    }
+                }
+            } else if (final) {
+                // Transaction was decided by banks, but all nodes still voted for reputation purposes
+                console.log(`\n✅ [AutoVote] Bank-decided transaction ${transactionId} (${final.status}) — collected ${final.votes.length} node votes for reputation training\n`);
+
+                // Still update reputations based on bank decision
+                const hasBankInput = final.bankApprovals.length > 0 ||
+                    (final.bankRejections && final.bankRejections.length > 0);
+                if (hasBankInput) {
+                    const groundTruth = final.bankApprovals.length > 0;
+                    await updateNodeReputations(
+                        transactionId,
+                        groundTruth,
+                        final.votes.map(v => ({ nodeAddress: v.voter, decision: v.decision })),
+                        final.bankApprovals.length
+                    );
+                }
+            }
+        } catch (consensusErr) {
+            console.error('[AutoVote] Error in final consensus check:', consensusErr.message);
+        }
+
     } catch (err) {
         console.error('[AutoVote] Fatal error:', err.message);
     }

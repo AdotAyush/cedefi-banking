@@ -125,8 +125,19 @@ const Simulator = () => {
     const totalVotes  = yesVotes + noVotes;
     const yesWeight   = currentTx?.votes?.filter(v => v.decision).reduce((s, v) => s + (v.weight ?? 50), 0) ?? 0;
     const noWeight    = currentTx?.votes?.filter(v => !v.decision).reduce((s, v) => s + (v.weight ?? 50), 0) ?? 0;
-    const maxWeight   = totalActive * 100;
-    const approvalPct = maxWeight > 0 ? Math.min(100, (yesWeight / maxWeight) * 100) : 0;
+    // Use actual reputation sum as denominator (matches backend ConsensusService.js)
+    const maxWeight   = activeNodes.reduce((sum, n) => sum + (n.reputation || 50), 0);
+    
+    // Calculate exact thresholds based on actual weights (matches backend)
+    const ruleAThreshold = maxWeight * (2 / 3);
+    const ruleBThreshold = maxWeight * (1 / 2);
+    const ruleAThresholdPct = (ruleAThreshold / maxWeight) * 100;
+    const ruleBThresholdPct = (ruleBThreshold / maxWeight) * 100;
+    
+    // Calculate percentages for display and check thresholds
+    const approvalPct = maxWeight > 0 ? Math.min(100, (yesWeight / maxWeight) * 100) : 0;
+    const isRuleAMet = yesWeight >= ruleAThreshold;
+    const isRuleBMet = yesWeight >= ruleBThreshold;
     const bankApprovals = currentTx?.bankApprovals?.length ?? 0;
     const pendingCount  = totalActive - totalVotes;
 
@@ -208,10 +219,8 @@ const Simulator = () => {
                         <div className="flex justify-between text-xs text-slate-400 mb-1">
                             <span className="flex items-center gap-1.5">
                                 <FaThumbsUp className="text-emerald-400" />
-                                YES weight: <strong className="text-emerald-300">{yesWeight}</strong>
-                                <span className="text-slate-600">({yesVotes} votes)</span>
-                            </span>
-                            <span>{totalVotes}/{totalActive} nodes voted</span>
+                                YES weight: <strong className="text-emerald-300">{yesWeight}</strong> / {maxWeight.toFixed(0)}
+                            </span>
                             <span className="flex items-center gap-1.5">
                                 <span className="text-slate-600">({noVotes} votes)</span>
                                 <strong className="text-red-300">{noWeight}</strong>
@@ -227,16 +236,16 @@ const Simulator = () => {
                                 className="absolute left-0 top-0 h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
                             />
                             {/* ⅔ rule A threshold */}
-                            <div className="absolute top-0 h-full w-0.5 bg-white/40" style={{ left: '66.67%' }} title="Rule A: 2/3 threshold" />
+                            <div className="absolute top-0 h-full w-0.5 bg-white/40" style={{ left: `${ruleAThresholdPct}%` }} title="Rule A: 2/3 threshold" />
                             {/* ½ rule B threshold */}
-                            <div className="absolute top-0 h-full w-0.5 bg-white/20" style={{ left: '50%' }} title="Rule B: 1/2 threshold" />
+                            <div className="absolute top-0 h-full w-0.5 bg-white/20" style={{ left: `${ruleBThresholdPct}%` }} title="Rule B: 1/2 threshold" />
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                            <div className={`text-xs p-2 rounded-lg border ${approvalPct >= 66.67 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}>
+                            <div className={`text-xs p-2 rounded-lg border ${isRuleAMet ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}>
                                 <strong>Rule A:</strong> ≥ ⅔ weighted approval → APPROVED
                             </div>
-                            <div className={`text-xs p-2 rounded-lg border ${(approvalPct >= 50 && bankApprovals >= 1) ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}>
+                            <div className={`text-xs p-2 rounded-lg border ${(isRuleBMet && bankApprovals >= 1) ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}>
                                 <strong>Rule B:</strong> ≥ ½ approval + ≥ 1 bank → APPROVED
                             </div>
                         </div>
